@@ -5,8 +5,8 @@
   "author": "Mohammed Saleh <mohammedsaleh002@outlook.com> (https://github.com/54l3h)",
   "private": true,
   "license": "Proprietary",
-  "main": "server.js",
-  "type": "commonjs",
+  "main": "src/server.js",
+  "type": "module",
   "scripts": {
     "start:dev": "node --watch ."
   },
@@ -26,6 +26,10 @@
     "nodejs"
   ],
   "dependencies": {
-    "express": "^5.1.0"
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mongodb": "^6.20.0",
+    "mongoose": "^8.19.1",
+    "morgan": "^1.10.1"
   }
 }
