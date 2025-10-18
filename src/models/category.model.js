@@ -13,7 +13,7 @@ const categorySchama = new Schema(
       type: String,
       lowercase: true,
     },
-    image: Sting,
+    image: String,
   },
   { timestamps: true }
 );
