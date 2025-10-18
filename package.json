@@ -1,0 +1,31 @@
+{
+  "name": "action-sports-api",
+  "version": "0.0.1",
+  "description": "E-commerce backend for Action Sports, a fitness equipment store, built with Express.js and MongoDB.",
+  "author": "Mohammed Saleh <mohammedsaleh002@outlook.com> (https://github.com/54l3h)",
+  "private": true,
+  "license": "Proprietary",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start:dev": "node --watch ."
+  },
+  "keywords": [
+    "express",
+    "javascript",
+    "mongodb",
+    "mongoose",
+    "rest-api",
+    "ecommerce",
+    "fitness",
+    "sports",
+    "backend",
+    "api",
+    "action-sports",
+    "fitness-equipment",
+    "nodejs"
+  ],
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
