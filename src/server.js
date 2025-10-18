@@ -1,12 +1,17 @@
 import express from "express";
 import dotenv from "dotenv";
 import morgan from "morgan";
-import { connectToDB } from "./Database/connection.js";
-dotenv.config();
+import { connectToDB } from "./config/database.js";
+import categoryController from "./modules/category/category.controller.js";
 
-const app = express();
+dotenv.config();
 const PORT = process.env.PORT || 3000;
 const ENV = process.env.NODE_ENV;
+
+const app = express();
+
+app.use(express.json());
+app.use("/api/category", categoryController);
 
 if (ENV === "DEVELOPMENT") {
   app.use(morgan("dev"));
