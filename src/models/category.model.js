@@ -18,6 +18,6 @@ const categorySchama = new Schema(
   { timestamps: true }
 );
 
-const CatgeoryModel = model("Category", categorySchama);
+const CategoryModel = model("Category", categorySchama);
 
-export default CatgeoryModel;
+export default CategoryModel;
