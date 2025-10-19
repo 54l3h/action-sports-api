@@ -2,8 +2,8 @@ import asyncHandler from "express-async-handler";
 import CategoryModel from "../../../models/category.model.js";
 
 /**
- * @desc    Delete category
- * @route   DELETE /api/category
+ * @desc    Delete a category by ID
+ * @route   DELETE /api/category/:id
  * @access  Private
  * @param   {Object} req - Express request object
  * @param   {Object} res - Express response object
