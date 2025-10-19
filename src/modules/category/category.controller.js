@@ -7,10 +7,11 @@ import { deleteCategory } from "./services/deleteCategory.service.js";
 
 const router = new Router();
 
-router.get("", getCategories);
-router.get("/:id", getCategoryById);
-router.post("", createCategory);
-router.patch("/:id", updateCategory);
-router.delete("/:id", deleteCategory);
+router.route("/").get(getCategories).post(createCategory);
+router
+  .route("/:id")
+  .get(getCategoryById)
+  .patch(updateCategory)
+  .delete(deleteCategory);
 
 export default router;
