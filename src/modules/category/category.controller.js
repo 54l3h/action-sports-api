@@ -1,6 +1,6 @@
 import { Router } from "express";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
-import * as categoryValidationSchema from "../category.validation.schema.js";
+import * as categoryValidationSchema from "./category.validation.schema.js";
 import * as categoryService from "./services/index.js";
 
 const router = new Router();
