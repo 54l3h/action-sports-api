@@ -1,5 +1,6 @@
 import asyncHandler from "express-async-handler";
-import CategoryModel from "../../../models/category.model.js";
+import Category from "../../../models/category.model.js";
+import AppError from "../../../utils/AppError.js";
 
 /**
  * @desc    Delete a category by ID
@@ -12,12 +13,10 @@ import CategoryModel from "../../../models/category.model.js";
  */
 export const deleteCategory = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const category = await CategoryModel.findByIdAndDelete(id, { new: true });
+  const category = await Category.findByIdAndDelete(id, { new: true });
 
   if (!category) {
-    return res
-      .status(404)
-      .json({ success: false, message: "Category not found" });
+    throw new AppError("Category not found", 404);
   }
 
   return res.status(200).json({

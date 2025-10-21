@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
-import CategoryModel from "../../../models/category.model.js";
+import Category from "../../../models/category.model.js";
 import slugify from "slugify";
+import AppError from "../../../utils/AppError.js";
 
 /**
  * @desc    Update category
@@ -15,15 +16,13 @@ export const updateCategory = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
   const { name } = req.body;
 
-  const category = await CategoryModel.findByIdAndUpdate(
+  const category = await Category.findByIdAndUpdate(
     id,
     { name, slug: slugify(name) },
     { new: true }
   );
   if (!category) {
-    return res
-      .status(404)
-      .json({ success: false, message: "Category not found" });
+    throw new AppError("Category not found", 404);
   }
 
   return res.status(200).json({

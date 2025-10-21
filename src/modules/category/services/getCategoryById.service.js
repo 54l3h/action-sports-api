@@ -1,5 +1,7 @@
 import asyncHandler from "express-async-handler";
-import CategoryModel from "../../../models/category.model.js";
+import Category from "../../../models/category.model.js";
+import { isValidObjectId } from "mongoose";
+import AppError from "../../../utils/AppError.js";
 
 /**
  * @desc    Get a single category by ID
@@ -12,11 +14,12 @@ import CategoryModel from "../../../models/category.model.js";
  */
 export const getCategoryById = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const category = await CategoryModel.findById(id);
+  if (!isValidObjectId(id)) {
+    throw new AppError("Invalid category id", 400);
+  }
+  const category = await Category.findById(id);
   if (!category) {
-    return res
-      .status(404)
-      .json({ success: false, message: "Category not found" });
+    throw new AppError("Category not found", 404);
   }
   return res.status(200).json({
     success: true,

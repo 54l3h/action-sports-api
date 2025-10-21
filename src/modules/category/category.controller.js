@@ -1,17 +1,35 @@
 import { Router } from "express";
-import { getCategories } from "./services/getCategories.service.js";
-import { createCategory } from "./services/createCategory.service.js";
-import { getCategoryById } from "./services/getCategoryById.service.js";
-import { updateCategory } from "./services/updateCategory.service.js";
-import { deleteCategory } from "./services/deleteCategory.service.js";
+import validationMiddleware from "../../middlewares/validation.middleware.js";
+import * as categoryValidationSchema from "../category.validation.schema.js";
+import * as categoryService from "./services/index.js";
 
 const router = new Router();
 
-router.route("/").get(getCategories).post(createCategory);
+router
+  .route("")
+  .get(categoryService.getCategories)
+  .post(
+    categoryValidationSchema.createCategory,
+    validationMiddleware,
+    categoryService.createCategory
+  );
+
 router
   .route("/:id")
-  .get(getCategoryById)
-  .patch(updateCategory)
-  .delete(deleteCategory);
+  .get(
+    categoryValidationSchema.getCategory,
+    validationMiddleware,
+    categoryService.getCategoryById
+  )
+  .patch(
+    categoryValidationSchema.updateCategory,
+    validationMiddleware,
+    categoryService.updateCategory
+  )
+  .delete(
+    categoryValidationSchema.deleteCategory,
+    validationMiddleware,
+    categoryService.deleteCategory
+  );
 
 export default router;

@@ -1,6 +1,7 @@
 import asyncHandler from "express-async-handler";
-import CategoryModel from "../../../models/category.model.js";
+import Category from "../../../models/category.model.js";
 import slugify from "slugify";
+import AppError from "../../../utils/AppError.js";
 
 /**
  * @desc    Create a new category
@@ -15,24 +16,22 @@ export const createCategory = asyncHandler(async (req, res, next) => {
   const { name } = req.body;
 
   if (!name) {
-    return res.status(400).json({
-      success: false,
-      message: "Category name is required",
-    });
+    throw new AppError("Category name is required", 400);
   }
 
-  const existingCategory = await CategoryModel.findOne({ name });
+  const existingCategory = await Category.findOne({ name });
   if (existingCategory) {
-    return res.status(409).json({
-      success: false,
-      message: "Category already exists",
-    });
+    throw new AppError("Category already exists", 409);
   }
 
-  const category = await CategoryModel.create({
+  const category = await Category.create({
     name,
     slug: slugify(name),
   });
+
+  if (!category) {
+    throw new AppError("Unable to create category", 500);
+  }
   return res.status(201).json({
     success: true,
     message: "Category created successfully",
