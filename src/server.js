@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import morgan from "morgan";
 import { connectToDB } from "./config/database.js";
 import categoryController from "./modules/category/category.controller.js";
+import subCategoryController from "./modules/subcategory/subCategory.controller.js";
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 
@@ -14,8 +15,14 @@ const app = express();
 
 app.use(express.json());
 
+if (ENV === "DEVELOPMENT") {
+  app.use(morgan("dev"));
+  console.log(`mode: ${ENV}`);
+}
+
 // Mount routes
-app.use("/api/category", categoryController);
+app.use("/api/categories", categoryController);
+app.use("/api/subcategories", subCategoryController);
 
 // Handle undefined routes
 app.use((req, res, next) => {
@@ -24,11 +31,6 @@ app.use((req, res, next) => {
 
 // Error handling middleware
 app.use(errorHandlingMiddleware);
-
-if (ENV === "DEVELOPMENT") {
-  app.use(morgan("dev"));
-  console.log(`mode: ${ENV}`);
-}
 
 const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

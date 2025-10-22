@@ -2,11 +2,20 @@ import { Router } from "express";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import * as categoryValidationSchema from "./category.validation.schema.js";
 import * as categoryService from "./services/index.js";
+import subCategoryController from "../subcategory/subCategory.controller.js";
 
-const router = new Router();
+const router = Router();
+
+// Mount nested subcategory routes here so you get:
+// /api/categories/:categoryId/subcategories
+router.use("/:categoryId/subcategories", subCategoryController);
+
+// NOTE: Do NOT also mount "/subcategories" here — that would create
+// /api/categories/subcategories (no categoryId) which is confusing.
+// If you want a top-level /api/subcategories route, mount it in server.js.
 
 router
-  .route("")
+  .route("/")
   .get(categoryService.getCategories)
   .post(
     categoryValidationSchema.createCategory,
