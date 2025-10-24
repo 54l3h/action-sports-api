@@ -8,7 +8,6 @@ import AppError from "../../../utils/AppError.js";
  * @route   DELETE /api/categories/:categoryId/subcategories/:subcategoryId
  * @route   DELETE /api/subcategories/:subcategoryId
  * @access  Private
- * @returns {Promise<void>} Sends a JSON response with the deleted subcategory
  */
 export const deleteSubCategory = asyncHandler(async (req, res, next) => {
   const { categoryId, subcategoryId } = req.params;

@@ -5,6 +5,7 @@ import { connectToDB } from "./config/database.js";
 import categoryController from "./modules/category/category.controller.js";
 import subCategoryController from "./modules/subcategory/subCategory.controller.js";
 import brandController from "./modules/brand/brand.controller.js";
+import productController from './modules/product/product.controller.js'
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 
@@ -25,6 +26,7 @@ if (ENV === "DEVELOPMENT") {
 app.use("/api/categories", categoryController);
 app.use("/api/subcategories", subCategoryController);
 app.use("/api/brands", brandController);
+app.use("/api/products", productController);
 
 // Handle undefined routes
 app.use((req, res, next) => {

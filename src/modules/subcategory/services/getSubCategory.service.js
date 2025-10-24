@@ -7,7 +7,7 @@ import AppError from "../../../utils/AppError.js";
  * @desc    Get a subcategory (supports nested and top-level routes)
  * @route   GET /api/categories/:categoryId/subcategories/:subcategoryId
  * @route   GET /api/subcategories/:subcategoryId
- * @access  Private
+ * @access  Public
  */
 export const getSubCategory = asyncHandler(async (req, res, next) => {
   const { categoryId, subcategoryId } = req.params; // use `subcategoryId` consistently

@@ -8,10 +8,6 @@ import AppError from "../../../utils/AppError.js";
  * @desc    Create a new subcategory
  * @route   GET /api/categories/:categoryId/subcategories
  * @access  Private
- * @param   {Object} req - Express request object
- * @param   {Object} res - Express response object
- * @param   {Function} next - Express next middleware function
- * @returns {Promise<void>} Sends a JSON response with the created subcategory
  */
 
 export const createSubCategory = asyncHandler(async (req, res, next) => {
