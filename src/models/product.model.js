@@ -2,17 +2,17 @@ import { Schema, model, Types } from "mongoose";
 
 const productSchema = new Schema(
   {
-    // name: {
-    //   type: String,
-    //   required: [true, "Product name is required"],
-    //   unique: [true, "Product name should be unique"],
-    //   minLength: [3, "Product name is too short"],
-    //   maxLength: [32, "Product name is too long"],
-    // },
+    name: {
+      type: String,
+      required: [true, "Product name is required"],
+      unique: [true, "Product name should be unique"],
+      minLength: [3, "Product name is too short"],
+      maxLength: [32, "Product name is too long"],
+    },
     title: {
       type: String,
       required: [true, "Product title is required"],
-      // unique: [true, "Product title should be unique"],
+      unique: [true, "Product title should be unique"],
       minLength: [8, "Product title is too short"],
       maxLength: [256, "Product title is too long"],
     },
@@ -57,12 +57,12 @@ const productSchema = new Schema(
     subCategory: {
       type: Types.ObjectId,
       ref: "Subcategory",
-      // required: [true, "Product must belong to a subcategory"],
+      required: [true, "Product must belong to a subcategory"],
     },
     brand: {
       type: Types.ObjectId,
       ref: "Brand",
-      // required: [true, "Product must belong to a brand"],
+      required: [true, "Product must belong to a brand"],
     },
     averageRating: {
       type: Number,
