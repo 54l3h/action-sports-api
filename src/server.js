@@ -8,12 +8,14 @@ import brandController from "./modules/brand/brand.controller.js";
 import productController from './modules/product/product.controller.js'
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
+import cors from "cors";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
 const ENV = process.env.NODE_ENV;
 
 const app = express();
+app.use(cors());
 
 app.use(express.json());
 

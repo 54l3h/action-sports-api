@@ -71,6 +71,7 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     price,
     // coverImage,
     category,
+    subCategory,
     brand,
   });
 

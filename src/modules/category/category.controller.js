@@ -3,6 +3,8 @@ import validationMiddleware from "../../middlewares/validation.middleware.js";
 import * as categoryValidationSchema from "./category.validation.schema.js";
 import * as categoryService from "./services/index.js";
 import subCategoryController from "../subcategory/subCategory.controller.js";
+import { uploadCategoryImage } from "./services/uploadCategoryImage.service.js";
+import { resizeImage } from "./services/resizeImage.service.js";
 
 const router = Router();
 
@@ -14,14 +16,13 @@ router.use("/:categoryId/subcategories", subCategoryController);
 // /api/categories/subcategories (no categoryId) which is confusing.
 // If you want a top-level /api/subcategories route, mount it in server.js.
 
-router
-  .route("/")
-  .get(categoryService.getCategories)
-  .post(
-    categoryValidationSchema.createCategory,
-    validationMiddleware,
-    categoryService.createCategory
-  );
+router.route("/").get(categoryService.getCategories).post(
+  uploadCategoryImage,
+  resizeImage,
+  categoryValidationSchema.createCategory,
+  validationMiddleware,
+  categoryService.createCategory
+);
 
 router
   .route("/:id")
