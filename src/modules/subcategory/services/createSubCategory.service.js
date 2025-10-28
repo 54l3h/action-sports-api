@@ -12,7 +12,7 @@ import cloud from "../../../config/cloudinary.js";
  */
 
 export const createSubCategory = asyncHandler(async (req, res, next) => {
-  const { name } = req.body;
+  const { name, description } = req.body;
   const { categoryId } = req.params;
   const file = req.file;
 
@@ -72,6 +72,7 @@ export const createSubCategory = asyncHandler(async (req, res, next) => {
 
   const subCategory = await SubCategory.create({
     name,
+    description,
     slug: slugify(name, { lower: true }),
     category: categoryId,
     image: { secure_url, public_id },

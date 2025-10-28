@@ -13,6 +13,12 @@ const categorySchama = new Schema(
       type: String,
       lowercase: true,
     },
+    description: {
+      type: String,
+      required: [true, "Category description is required"],
+      minLength: [24, "Category description is too short"],
+      maxLength: [2000, "Category description is too long"],
+    },
     image: { secure_url: String, public_id: String },
   },
   { timestamps: true }
