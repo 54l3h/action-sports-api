@@ -96,6 +96,7 @@ export const createOne = (Model) => {
     // Create DB doc
     const document = await Model.create({
       name,
+      description,
       slug: slugify(name, { lower: true }),
       image: { secure_url, public_id },
     });
