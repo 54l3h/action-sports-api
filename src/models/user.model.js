@@ -24,7 +24,6 @@ const userSchema = new Schema(
       lowercase: true,
     },
     phone: String,
-
     password: {
       type: String,
       required: [true, "Password should be unique"],

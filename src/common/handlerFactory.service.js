@@ -25,11 +25,57 @@ export const deleteOne = (Model) => {
 export const updateOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, description } = req.body;
+    const file = req.file;
+
+    // Start ----------------------
+
+    // Build data URI
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
+      "base64"
+    )}`;
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const publicId = `${file.fieldname}-${uniqueSuffix}`;
+
+    // Upload to Cloudinary
+    let uploadResult;
+    try {
+      uploadResult = await cloud.uploader.upload(dataUri, {
+        folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
+          Model.modelName
+        }`,
+        public_id: publicId,
+        resource_type: "image",
+        overwrite: false,
+      });
+    } catch (err) {
+      // Cloudinary errors (network, auth, etc.)
+      return next(err);
+    }
+
+    const { secure_url, public_id } = uploadResult;
+
+    // Check duplicate name in DB — if duplicate, remove cloud image to avoid orphan
+    const existing = await Model.findOne({ name });
+    if (existing) {
+      try {
+        await cloud.uploader.destroy(public_id);
+      } catch (delErr) {
+        console.warn("Failed to delete duplicate upload:", delErr);
+      }
+      return next(new AppError(`${Model.modelName} already exists`, 409));
+    }
+
+    // End ----------------------
 
     const document = await Model.findByIdAndUpdate(
       id,
-      { name, slug: slugify(name) },
+      {
+        name,
+        slug: slugify(name),
+        description,
+        image: { secure_url, public_id },
+      },
       { new: true }
     );
     if (!document) {

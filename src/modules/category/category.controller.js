@@ -35,6 +35,7 @@ router
     categoryService.getCategoryById
   )
   .patch(
+    uploadSingleImage("image"),
     categoryValidationSchema.updateCategory,
     validationMiddleware,
     categoryService.updateCategory

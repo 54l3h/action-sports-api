@@ -28,6 +28,7 @@ router
     brandService.getBrand
   )
   .patch(
+    uploadSingleImage("image"),
     brandValidationSchema.updateBrand,
     validationMiddleware,
     brandService.updateBrand
