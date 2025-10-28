@@ -27,9 +27,15 @@ export const updateOne = (Model) => {
     const { id } = req.params;
     const { name, description } = req.body;
     const file = req.file;
+    const updatedData = {};
+
+    if (name) {
+      updatedData.name = name;
+      updatedData.slug = slugify(name);
+    }
+    if (description) updatedData.description = description;
 
     // Start ----------------------
-
     // Build data URI
     const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
       "base64"
@@ -55,6 +61,8 @@ export const updateOne = (Model) => {
 
     const { secure_url, public_id } = uploadResult;
 
+    if (secure_url && public_id) updatedData.image = { secure_url, public_id };
+
     // Check duplicate name in DB — if duplicate, remove cloud image to avoid orphan
     const existing = await Model.findOne({ name });
     if (existing) {
@@ -68,16 +76,9 @@ export const updateOne = (Model) => {
 
     // End ----------------------
 
-    const document = await Model.findByIdAndUpdate(
-      id,
-      {
-        name,
-        slug: slugify(name),
-        description,
-        image: { secure_url, public_id },
-      },
-      { new: true }
-    );
+    const document = await Model.findByIdAndUpdate(id, updatedData, {
+      new: true,
+    });
     if (!document) {
       throw new AppError(`${Model.modelName} not found`, 404);
     }
