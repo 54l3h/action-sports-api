@@ -2,6 +2,8 @@ import asyncHandler from "express-async-handler";
 import AppError from "../utils/AppError.js";
 import slugify from "slugify";
 import { isValidObjectId } from "mongoose";
+import cloud from "../config/cloudinary.js";
+import { uploadImageToCloudinary } from "../utils/uploadImageToCloudinary.js";
 
 export const deleteOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
@@ -45,20 +47,75 @@ export const updateOne = (Model) => {
 export const createOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { name } = req.body;
+    const file = req.file;
 
-    const existingDocument = await Model.findOne({ name });
-    if (existingDocument) {
-      throw new AppError(`${Model.modelName} already exists`, 409);
-    }
+    if (!name) return next(new AppError("Name is required", 400));
+    if (!file) return next(new AppError("Image is required", 400));
 
+    // Start ----------------------
+
+    // Build data URI
+    // const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
+    //   "base64"
+    // )}`;
+    // const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    // const publicId = `${file.fieldname}-${uniqueSuffix}`;
+
+    // // Upload to Cloudinary
+    // let uploadResult;
+    // try {
+    //   uploadResult = await cloud.uploader.upload(dataUri, {
+    //     folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
+    //       Model.modelName
+    //     }`,
+    //     public_id: publicId,
+    //     resource_type: "image",
+    //     overwrite: false,
+    //   });
+    // } catch (err) {
+    //   // Cloudinary errors (network, auth, etc.)
+    //   return next(err);
+    // }
+
+    // const { secure_url, public_id } = uploadResult;
+
+    // // Check duplicate name in DB — if duplicate, remove cloud image to avoid orphan
+    // const existing = await Model.findOne({ name });
+    // if (existing) {
+    //   try {
+    //     await cloud.uploader.destroy(public_id);
+    //   } catch (delErr) {
+    //     console.warn("Failed to delete duplicate upload:", delErr);
+    //   }
+    //   return next(new AppError(`${Model.modelName} already exists`, 409));
+    // }
+
+    // End ----------------------
+
+    const { secure_url, public_id } = await uploadImageToCloudinary(
+      Model,
+      name,
+      file,
+      next
+    );
+
+    // Create DB doc
     const document = await Model.create({
       name,
-      slug: slugify(name),
+      slug: slugify(name, { lower: true }),
+      image: { secure_url, public_id },
     });
 
     if (!document) {
-      throw new AppError(`Unable to create ${Model.modelName}`, 500);
+      // cleanup on failure
+      try {
+        await cloud.uploader.destroy(public_id);
+      } catch (delErr) {
+        console.warn("failed to cleanup cloud image after DB failure:", delErr);
+      }
+      return next(new AppError(`Unable to create ${Model.modelName}`, 500));
     }
+
     return res.status(201).json({
       success: true,
       message: `${Model.modelName} created successfully`,

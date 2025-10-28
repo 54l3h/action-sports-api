@@ -2,12 +2,14 @@ import { Router } from "express";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import * as brandValidationSchema from "./brand.validation.schema.js";
 import * as brandService from "./services/index.js";
+import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
 router
   .route("/")
   .post(
+    uploadSingleImage("image"),
     brandValidationSchema.createBrand,
     validationMiddleware,
     brandService.createBrand

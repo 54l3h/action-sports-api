@@ -1,6 +1,7 @@
+import asyncHandler from "express-async-handler";
 import sharp from "sharp";
 
-export const resizeImage = async (req, res, next) => {
+export const resizeImage = asyncHandler(async (req, res, next) => {
   const { file } = req;
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
   const filename = file.fieldname + "-" + uniqueSuffix + ".jpeg";
@@ -9,5 +10,7 @@ export const resizeImage = async (req, res, next) => {
     .toFormat("jpeg")
     .jpeg({ quality: 90 })
     .toFile(`uploads/categories/${filename}`);
+
+  req.body.name = filename;
   next();
-};
+});

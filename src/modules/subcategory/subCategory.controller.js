@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as subCategoryValidationSchema from "./subCategory.validation.schema.js";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import * as subCategoryService from "./services/index.js";
+import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
 
 const router = Router({ mergeParams: true });
 
@@ -18,6 +19,7 @@ router
     subCategoryService.getSubCategories
   )
   .post(
+    uploadSingleImage("image"),
     subCategoryValidationSchema.createSubCategory,
     validationMiddleware,
     subCategoryService.createSubCategory
