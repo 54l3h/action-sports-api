@@ -12,5 +12,6 @@ router
   .delete(userService.deleteUser);
 
 router.patch("/:id/activation", userService.toggleUserActivation);
+router.patch("/:id/change-password", userService.changePassword);
 
 export default router;

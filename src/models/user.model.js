@@ -1,5 +1,6 @@
 import { model, Schema } from "mongoose";
 import slugify from "slugify";
+import bcrypt from "bcryptjs";
 
 export const UserRoles = {
   ADMIN: "admin",
@@ -43,19 +44,45 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
-userSchema.pre("save", function (next) {
+userSchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
     this.slug = slugify(this.name);
   }
+
+  if (this.isModified("password")) {
+    this.password = await bcrypt.hash(this.password, 8);
+  }
+
   next();
 });
 
-userSchema.pre("findOneAndUpdate", function (next) {
+userSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
+
   if (update.name) {
-    update.slug = slugify(update.name, { lower: true, strict: true });
-    this.setUpdate(update);
+    update.slug = slugify(update.name);
   }
+
+  if (update.password) {
+    update.password = await bcrypt.hash(update.password, 8);
+  }
+
+  this.setUpdate(update);
+  next();
+});
+
+userSchema.pre("updateOne", async function (next) {
+  const update = this.getUpdate();
+
+  if (update.name) {
+    update.slug = slugify(update.name);
+  }
+
+  if (update.password) {
+    update.password = await bcrypt.hash(update.password, 8);
+  }
+
+  this.setUpdate(update);
   next();
 });
 

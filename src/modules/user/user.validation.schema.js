@@ -12,19 +12,16 @@ export const createUser = [
     .isEmail()
     .withMessage("Invalid email address"),
   body("phone")
-    .exists({ checkFalsy: true })
-    .withMessage("Name is required")
-    .isString()
-    .withMessage("Name must be a string")
+    .optional()
+    .isMobilePhone(["ar-EG", "ar-SA"])
+    .withMessage("Invalid mobile phone")
     .isLength({ min: 2, max: 32 })
     .withMessage("Name must be between 2 and 32 characters long"),
   body("password")
     .exists({ checkFalsy: true })
-    .withMessage("Name is required")
-    .isString()
-    .withMessage("Name must be a string")
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be between 2 and 32 characters long"),
+    .withMessage("Password is required")
+    .isLength({ min: 6 })
+    .withMessage("Password must be at least 6 characters"),
 ];
 
 export const getUser = [param("id").isMongoId().withMessage("Invalid User ID")];

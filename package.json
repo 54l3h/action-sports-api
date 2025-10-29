@@ -27,6 +27,7 @@
     "nodejs"
   ],
   "dependencies": {
+    "bcryptjs": "^3.0.2",
     "cloudinary": "^2.8.0",
     "colors": "^1.4.0",
     "cors": "^2.8.5",
