@@ -3,6 +3,9 @@ import * as subCategoryValidationSchema from "./subCategory.validation.schema.js
 import validationMiddleware from "../../middlewares/validation.middleware.js";
 import * as subCategoryService from "./services/index.js";
 import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
+import { authenticationMiddleware } from "../../middlewares/authentication.middleware.js";
+import { authorizationMiddleware } from "../../middlewares/authorization.middleware.js";
+import { UserRoles } from "../../models/user.model.js";
 
 const router = Router({ mergeParams: true });
 
@@ -19,6 +22,8 @@ router
     subCategoryService.getSubCategories
   )
   .post(
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
     uploadSingleImage("image"),
     subCategoryValidationSchema.createSubCategory,
     validationMiddleware,
@@ -39,11 +44,15 @@ router
     subCategoryService.getSubCategory
   )
   .patch(
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
     subCategoryValidationSchema.updateSubCategory,
     validationMiddleware,
     subCategoryService.updateSubCategory
   )
   .delete(
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
     subCategoryValidationSchema.deleteSubCategory,
     validationMiddleware,
     subCategoryService.deleteSubCategory

@@ -24,7 +24,17 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
 
   const user = await User.findById(decoded.userId);
   if (!user) {
-    throw new AppError("User not found", 404);
+    throw new AppError(
+      "The user associated with this token no longer exists",
+      404
+    );
+  }
+
+  if (user.passwordChangedAt / 1000 >= decoded.iat) {
+    throw new AppError(
+      "Password was changed recently. Please log in again.",
+      401
+    );
   }
 
   req.user = user;

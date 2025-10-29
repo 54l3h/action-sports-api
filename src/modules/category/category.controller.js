@@ -8,6 +8,7 @@ import subCategoryController from "../subcategory/subCategory.controller.js";
 import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
 import { authorizationMiddleware } from "../../middlewares/authorization.middleware.js";
 import { UserRoles } from "../../models/user.model.js";
+import { authenticationMiddleware } from "../../middlewares/authentication.middleware.js";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router
   .route("/")
   .get(categoryService.getCategories)
   .post(
+    authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     uploadSingleImage("image"),
     categoryValidationSchema.createCategory,
@@ -38,12 +40,16 @@ router
     categoryService.getCategoryById
   )
   .patch(
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
     uploadSingleImage("image"),
     categoryValidationSchema.updateCategory,
     validationMiddleware,
     categoryService.updateCategory
   )
   .delete(
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
     categoryValidationSchema.deleteCategory,
     validationMiddleware,
     categoryService.deleteCategory

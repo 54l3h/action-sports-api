@@ -40,6 +40,7 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    passwordChangedAt: Date,
   },
   { timestamps: true }
 );

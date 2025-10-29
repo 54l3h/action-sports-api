@@ -28,7 +28,7 @@ export const signup = asyncHandler(async (req, res, next) => {
   return res.status(201).json({
     success: true,
     message: "Account created successfully",
-    data: token,
+    data: { token },
   });
 });
 
@@ -52,6 +52,6 @@ export const signin = asyncHandler(async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: "Signed in successfully",
-    data: token,
+    data: { token },
   });
 });
