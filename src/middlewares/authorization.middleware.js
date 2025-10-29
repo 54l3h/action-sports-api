@@ -1,38 +1,15 @@
 import asyncHandler from "express-async-handler";
-import jwt from "jsonwebtoken";
-import User, { UserRoles } from "../models/user.model.js";
 import AppError from "../utils/AppError.js";
 
-export const authorizationMiddleware = (role = UserRoles.USER) => {
+export const authorizationMiddleware = (...allowedRoles) => {
   return asyncHandler(async (req, res, next) => {
-    const { authorization } = req.headers;
-
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      throw new AppError("Authorization header is missing or invalid", 401);
+    if (!req.user) {
+      throw new AppError("You must be authenticated to access this route", 401);
     }
 
-    const token = authorization.split(" ")[1];
-    if (!token) {
-      throw new AppError("Token not provided", 401);
+    if (!allowedRoles.includes(req.user.role)) {
+      throw new AppError("You are not authorized to perform this action", 403);
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      throw new AppError("Invalid or expired token", 401);
-    }
-
-    const user = await User.findById(decoded.userId);
-    if (!user) {
-      throw new AppError("User not found", 404);
-    }
-
-    if (role && user.role !== role) {
-      throw new AppError("Unauthorized user", 403);
-    }
-
-    req.user = user;
 
     next();
   });
