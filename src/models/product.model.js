@@ -48,7 +48,13 @@ const productSchema = new Schema(
       type: String,
       // required: [true, "Product cover image is required"],
     },
-    images: [String],
+    images: [
+      {
+        secure_url: { type: String, required: true },
+        public_id: { type: String, required: true },
+        _id: false,
+      },
+    ],
     category: {
       type: Types.ObjectId,
       ref: "Category",

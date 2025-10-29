@@ -5,7 +5,7 @@ import slugify from "slugify";
 import Category from "../../../models/category.model.js";
 import SubCategory from "../../../models/subCategory.model.js";
 import Brand from "../../../models/brand.model.js";
-import { Types } from "mongoose";
+import cloud from "../../../config/cloudinary.js";
 
 export const createProduct = asyncHandler(async (req, res, next) => {
   const {
@@ -38,16 +38,6 @@ export const createProduct = asyncHandler(async (req, res, next) => {
       throw new AppError("Subcategory not found", 404);
     }
 
-    // if (
-    //   !new Types.ObjectId(existingSubCategory.category._id).equals(
-    //     existingCategory._id
-    //   )
-    // )
-    //   throw new AppError(
-    //     "This subcategory does not belong to this category",
-    //     400
-    //   );
-
     if (!existingSubCategory.category.equals(existingCategory._id)) {
       throw new AppError(
         "This subcategory does not belong to this category",
@@ -62,6 +52,46 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     throw new AppError("This product is already exist", 409);
   }
 
+  const files = req.files;
+  console.log({ files });
+
+  if (!files.length) {
+    throw new AppError("Product images are required", 409);
+  }
+
+  let images = [];
+
+  for (const file of files) {
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
+      "base64"
+    )}`;
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const publicId = `${file.fieldname}-${uniqueSuffix}`;
+
+    let uploadResult;
+    try {
+      uploadResult = await cloud.uploader.upload(dataUri, {
+        folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
+          Product.modelName
+        }`,
+        public_id: publicId,
+        resource_type: "image",
+        overwrite: false,
+      });
+    } catch (err) {
+      return next(err);
+    }
+
+    const { secure_url, public_id } = uploadResult;
+    images.push({ secure_url, public_id });
+  }
+
+  console.log({ after: images });
+
+  if (!images.length) {
+    throw new AppError("Product images are required", 409);
+  }
+
   const product = await Product.create({
     name,
     title,
@@ -69,7 +99,7 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     description,
     quantity,
     price,
-    // coverImage,
+    images,
     category,
     subCategory,
     brand,

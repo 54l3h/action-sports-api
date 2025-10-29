@@ -2,7 +2,7 @@ import { Router } from "express";
 import * as productService from "./services/index.js";
 import * as productValidationSchema from "./product.validation.schema.js";
 import validationMiddleware from "../../middlewares/validation.middleware.js";
-import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
+import { uploadMultipleImages, uploadSingleImage } from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
@@ -14,7 +14,7 @@ router
     productService.getProducts
   )
   .post(
-    uploadSingleImage(),
+    uploadMultipleImages('images'),
     productValidationSchema.createProduct,
     validationMiddleware,
     productService.createProduct

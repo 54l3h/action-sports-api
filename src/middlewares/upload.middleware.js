@@ -15,3 +15,8 @@ export const uploadSingleImage = (fieldName = "image") =>
   multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } }).single(
     fieldName
   );
+
+export const uploadMultipleImages = (fieldName = "images") =>
+  multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_SIZE } }).array(
+    fieldName
+  );

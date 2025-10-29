@@ -6,6 +6,8 @@ import subCategoryController from "../subcategory/subCategory.controller.js";
 // import { uploadCategoryImage } from "./services/uploadCategoryImage.service.js";
 // import { resizeImage } from "./services/resizeImage.service.js";
 import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
+import { authorizationMiddleware } from "../../middlewares/authorization.middleware.js";
+import { UserRoles } from "../../models/user.model.js";
 
 const router = Router();
 
@@ -21,6 +23,7 @@ router
   .route("/")
   .get(categoryService.getCategories)
   .post(
+    authorizationMiddleware(UserRoles.ADMIN),
     uploadSingleImage("image"),
     categoryValidationSchema.createCategory,
     validationMiddleware,
