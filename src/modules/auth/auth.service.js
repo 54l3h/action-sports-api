@@ -67,7 +67,6 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
   }
 
   const resetCode = generateOTP();
-  console.log(resetCode);
 
   const hashedResetCode = crypto
     .createHash("sha256")
@@ -100,6 +99,7 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: "OTP sent to the email",
+    data: resetCode,
   });
 });
 
