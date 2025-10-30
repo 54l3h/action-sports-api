@@ -41,10 +41,9 @@ export const signin = asyncHandler(async (req, res, next) => {
   if (!email) return next(new AppError("Email is required", 400));
   if (!password) return next(new AppError("Password is required", 400));
 
-  const user = await User.findOne({ email });
-  const isPasswordCorrect = await bcrypt.compare(password, user.password);
+  const user = await User.findOne({ email, active: true });
 
-  if (!user || !isPasswordCorrect) {
+  if (!user || !(await bcrypt.compare(password, user.password))) {
     throw new AppError("Invalid credentials", 401);
   }
 

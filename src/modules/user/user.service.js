@@ -3,6 +3,7 @@ import User from "../../models/user.model.js";
 import * as factory from "../../common/handlerFactory.service.js";
 import AppError from "../../utils/AppError.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const getUser = factory.getOne(User);
 
@@ -89,3 +90,87 @@ export const toggleUserActivation = asyncHandler(async (req, res, next) => {
 });
 
 export const deleteUser = factory.deleteOne(User);
+
+export const getLoggedUserData = asyncHandler(async (req, res, next) => {
+  req.params.id = req.user._id;
+  next();
+});
+
+/**
+ * PATCH /api/auth/me/change-password
+ * Protected route — authenticationMiddleware must run before this handler.
+ */
+export const updateLoggedUserPassword = asyncHandler(async (req, res, next) => {
+  const { currentPassword, newPassword, passwordConfirm } = req.body;
+
+  if (!req.user) {
+    throw new AppError("You must be logged in to change password", 401);
+  }
+
+  const user = await User.findById(req.user._id).select("+password");
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const isCorrect = await bcrypt.compare(currentPassword, user.password);
+  if (!isCorrect) {
+    throw new AppError("Current password is incorrect", 401);
+  }
+
+  if (newPassword !== passwordConfirm) {
+    throw new AppError("New passwords do not match", 400);
+  }
+
+  // set new password and update passwordChangedAt so old tokens are invalidated
+  user.password = newPassword;
+  user.passwordChangedAt = Date.now();
+
+  await user.save();
+
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN,
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Password changed successfully. Please sign in again.",
+    data: { token },
+  });
+});
+
+export const updateLoggedUserData = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AppError("You must be logged in to update your profile", 401);
+  }
+
+  const { name, email, phone } = req.body;
+
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    { name, email, phone },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "User updated successfully",
+    data: updatedUser,
+  });
+});
+
+export const deactivateLoggedUser = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AppError("You must be logged in to deactivate your account", 401);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { active: false, deactivatedAt: Date.now() },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "Account deactivated successfully",
+  });
+});

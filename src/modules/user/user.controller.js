@@ -6,44 +6,23 @@ import { UserRoles } from "../../models/user.model.js";
 
 const router = Router();
 
-router
-  .route("/")
-  .get(
-    authenticationMiddleware,
-    authorizationMiddleware(UserRoles.ADMIN),
-    userService.getUsers
-  )
-  .post(
-    authenticationMiddleware,
-    authorizationMiddleware(UserRoles.ADMIN),
-    userService.createUser
-  );
+router.use(authenticationMiddleware);
+router.route("/me").get(userService.getLoggedUserData, userService.getUser);
+router.route("/me/change-password").patch(userService.updateLoggedUserPassword);
+router.route("/me/update-account").patch(userService.updateLoggedUserData);
+router.route("/me/deactivate-account").patch(userService.deactivateLoggedUser);
+
+router.use(authorizationMiddleware(UserRoles.ADMIN));
+
+router.route("/").get(userService.getUsers).post(userService.createUser);
 
 router
   .route("/:id")
   .get(userService.getUser)
-  .patch(
-    authenticationMiddleware,
-    authorizationMiddleware(UserRoles.ADMIN),
-    userService.updateUser
-  )
-  .delete(
-    authenticationMiddleware,
-    authorizationMiddleware(UserRoles.ADMIN),
-    userService.deleteUser
-  );
+  .patch(userService.updateUser)
+  .delete(userService.deleteUser);
 
-router.patch(
-  "/:id/activation",
-  authenticationMiddleware,
-  authorizationMiddleware(UserRoles.ADMIN),
-  userService.toggleUserActivation
-);
-router.patch(
-  "/:id/change-password",
-  authenticationMiddleware,
-  authorizationMiddleware(UserRoles.USER),
-  userService.changePassword
-);
+router.patch("/:id/activation", userService.toggleUserActivation);
+router.patch("/:id/change-password", userService.changePassword);
 
 export default router;

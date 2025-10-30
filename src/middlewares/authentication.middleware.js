@@ -36,6 +36,13 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
       401
     );
   }
+  
+  if (user.deactivatedAt / 1000 >= decoded.iat) {
+    throw new AppError(
+      "This account is deactivated. Please log in again to activate it.",
+      401
+    );
+  }
 
   req.user = user;
 

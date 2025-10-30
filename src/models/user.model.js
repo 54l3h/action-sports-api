@@ -40,6 +40,7 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    deactivatedAt: Date,
     passwordChangedAt: Date,
     passwordResetCode: String,
     passwordResetCodeExpiresAt: Date,
