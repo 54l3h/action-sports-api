@@ -79,7 +79,10 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
 export const getLoggedUserCart = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
-  const cart = await Cart.findOne({ userId });
+  const cart = await Cart.findOne({ userId }).populate({
+    path: "items.productId",
+    select: "name title",
+  });
 
   if (!cart) {
     throw new AppError("Your cart is empty you didn't add any item yet", 404);
