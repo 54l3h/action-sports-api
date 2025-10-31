@@ -8,6 +8,7 @@ import brandController from "./modules/brand/brand.controller.js";
 import productController from './modules/product/product.controller.js'
 import userController from './modules/user/user.controller.js'
 import authController from './modules/auth/auth.controller.js'
+import reviewController from './modules/review/review.controller.js'
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 import cors from "cors";
@@ -33,6 +34,7 @@ app.use("/api/brands", brandController);
 app.use("/api/products", productController);
 app.use("/api/users", userController);
 app.use("/api/auth", authController);
+app.use("/api/reviews", reviewController);
 
 // Handle undefined routes
 app.use((req, res, next) => {

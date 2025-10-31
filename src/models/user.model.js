@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import { model, Schema, Types } from "mongoose";
 import slugify from "slugify";
 import bcrypt from "bcryptjs";
 
@@ -6,6 +6,21 @@ export const UserRoles = {
   ADMIN: "admin",
   USER: "user",
 };
+
+const addressSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ["home", "work", "other"],
+      default: "home",
+    },
+    details: String,
+    phone: String,
+    city: String,
+    postalCode: String,
+  },
+  { _id: true }
+);
 
 const userSchema = new Schema(
   {
@@ -45,6 +60,7 @@ const userSchema = new Schema(
     passwordResetCode: String,
     passwordResetCodeExpiresAt: Date,
     passwordResetCodeVerified: Boolean,
+    addresses: [addressSchema],
   },
   { timestamps: true }
 );

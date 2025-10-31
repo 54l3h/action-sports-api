@@ -40,6 +40,64 @@ export const updateUser = asyncHandler(async (req, res, next) => {
   });
 });
 
+export const addAddress = asyncHandler(async (req, res, next) => {
+  console.log(req.body);
+
+  if (!req.user) {
+    throw new AppError("You must be logged in to add an address", 401);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $addToSet: { addresses: req.body },
+    },
+    { new: true }
+  );
+
+  return res.status(201).json({
+    success: true,
+    message: "Address added successfully",
+    data: user.addresses,
+  });
+});
+
+export const removeAddress = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AppError("You must be logged in to add an address", 401);
+  }
+
+  const addressId = req.params.id;
+
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $pull: { addresses: { _id: addressId } },
+    },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "Address deleted successfully",
+    data: user.addresses,
+  });
+});
+
+export const getLoggedUserAddresses = asyncHandler(async (req, res, next) => {
+  if (!req.user) {
+    throw new AppError("You must be logged in to add an address", 401);
+  }
+
+  const user = await User.findById(req.user._id).populate("addresses");
+
+  return res.status(200).json({
+    success: true,
+    message: "User addressed retireved successfully",
+    data: user.addresses,
+  });
+});
+
 export const changePassword = asyncHandler(async (req, res, next) => {
   const { currentPassword, newPassword, passwordConfirm } = req.body;
   const { password: hash } = await User.findById(req.params.id);
