@@ -1,4 +1,5 @@
 import { Schema, model, Types } from "mongoose";
+import slugify from "slugify";
 
 const productSchema = new Schema(
   {
@@ -8,6 +9,7 @@ const productSchema = new Schema(
       unique: [true, "Product name should be unique"],
       minLength: [3, "Product name is too short"],
       maxLength: [32, "Product name is too long"],
+      trim: true,
     },
     title: {
       type: String,
@@ -15,43 +17,56 @@ const productSchema = new Schema(
       unique: [true, "Product title should be unique"],
       minLength: [8, "Product title is too short"],
       maxLength: [256, "Product title is too long"],
+      trim: true,
     },
     slug: {
       type: String,
       lowercase: true,
+      trim: true,
+    },
+    specs: {
+      type: String,
+      required: [true, "specs description is required"],
+      minLength: [24, "specs description is too short"],
+      maxLength: [2000, "specs description is too long"],
+      trim: true,
     },
     description: {
       type: String,
       required: [true, "Product description is required"],
       minLength: [24, "Product description is too short"],
       maxLength: [2000, "Product description is too long"],
+      trim: true,
     },
+
     quantity: {
       type: Number,
       required: [true, "Product quantity is required"],
+      min: [0, "Quantity cannot be negative"],
     },
     sold: {
       type: Number,
       default: 0,
+      min: [0, "Sold cannot be negative"],
     },
     price: {
       type: Number,
       required: [true, "Product price is required"],
-      trim: true,
+      min: [0, "Price cannot be negative"],
     },
     priceAfterDiscount: {
       type: Number,
-      trim: true,
+      min: [0, "Price after discount cannot be negative"],
     },
-    colors: [String],
+    colors: [{ type: String, trim: true }],
     coverImage: {
       type: String,
-      // required: [true, "Product cover image is required"],
+      trim: true,
     },
     images: [
       {
-        secure_url: { type: String, required: true },
-        public_id: { type: String, required: true },
+        secure_url: { type: String, required: true, trim: true },
+        public_id: { type: String, required: true, trim: true },
         _id: false,
       },
     ],
@@ -83,6 +98,36 @@ const productSchema = new Schema(
   },
   { timestamps: true }
 );
+
+productSchema.pre("save", async function (next) {
+  if (this.isModified("name") || !this.slug) {
+    this.slug = slugify(this.name);
+  }
+
+  next();
+});
+
+productSchema.pre("findOneAndUpdate", async function (next) {
+  const update = this.getUpdate();
+
+  if (update.name) {
+    update.slug = slugify(update.name);
+  }
+
+  this.setUpdate(update);
+  next();
+});
+
+productSchema.pre("updateOne", async function (next) {
+  const update = this.getUpdate();
+
+  if (update.name) {
+    update.slug = slugify(update.name);
+  }
+
+  this.setUpdate(update);
+  next();
+});
 
 const ProductModel = model("Product", productSchema);
 

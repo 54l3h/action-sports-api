@@ -23,8 +23,8 @@ router
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     uploadMultipleImages("images"),
-    productValidationSchema.createProduct,
-    validationMiddleware,
+    // productValidationSchema.createProduct,
+    // validationMiddleware,
     productService.createProduct
   );
 

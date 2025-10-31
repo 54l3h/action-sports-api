@@ -1,7 +1,6 @@
 import asyncHandler from "express-async-handler";
 import Product from "../../../models/product.model.js";
 import AppError from "../../../utils/AppError.js";
-import slugify from "slugify";
 import Category from "../../../models/category.model.js";
 import SubCategory from "../../../models/subCategory.model.js";
 import Brand from "../../../models/brand.model.js";
@@ -53,7 +52,6 @@ export const createProduct = asyncHandler(async (req, res, next) => {
   }
 
   const files = req.files;
-  console.log({ files });
 
   if (!files.length) {
     throw new AppError("Product images are required", 409);
@@ -86,8 +84,6 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     images.push({ secure_url, public_id });
   }
 
-  console.log({ after: images });
-
   if (!images.length) {
     throw new AppError("Product images are required", 409);
   }
@@ -95,7 +91,6 @@ export const createProduct = asyncHandler(async (req, res, next) => {
   const product = await Product.create({
     name,
     title,
-    slug: slugify(name),
     description,
     quantity,
     price,
@@ -103,6 +98,7 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     category,
     subCategory,
     brand,
+    ...req.body
   });
 
   return res.status(201).json({

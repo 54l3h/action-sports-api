@@ -10,6 +10,8 @@ import userController from './modules/user/user.controller.js'
 import authController from './modules/auth/auth.controller.js'
 import reviewController from './modules/review/review.controller.js'
 import cartController from './modules/cart/cart.controller.js'
+import orderController from './modules/order/order.controller.js'
+import messageController from './modules/message/message.controller.js'
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 import cors from "cors";
@@ -37,6 +39,8 @@ app.use("/api/users", userController);
 app.use("/api/auth", authController);
 app.use("/api/reviews", reviewController);
 app.use("/api/cart", cartController);
+app.use("/api/orders", orderController);
+app.use("/api/messages", messageController);
 
 // Handle undefined routes
 app.use((req, res, next) => {
