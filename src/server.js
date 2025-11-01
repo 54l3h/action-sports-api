@@ -5,16 +5,18 @@ import { connectToDB } from "./config/database.js";
 import categoryController from "./modules/category/category.controller.js";
 import subCategoryController from "./modules/subcategory/subCategory.controller.js";
 import brandController from "./modules/brand/brand.controller.js";
-import productController from './modules/product/product.controller.js'
-import userController from './modules/user/user.controller.js'
-import authController from './modules/auth/auth.controller.js'
-import reviewController from './modules/review/review.controller.js'
-import cartController from './modules/cart/cart.controller.js'
-import orderController from './modules/order/order.controller.js'
-import messageController from './modules/message/message.controller.js'
+import productController from "./modules/product/product.controller.js";
+import userController from "./modules/user/user.controller.js";
+import authController from "./modules/auth/auth.controller.js";
+import reviewController from "./modules/review/review.controller.js";
+import cartController from "./modules/cart/cart.controller.js";
+import orderController from "./modules/order/order.controller.js";
+import messageController from "./modules/message/message.controller.js";
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 import cors from "cors";
+// import { loadStripe } from "@stripe/stripe-js";
+// import Stripe from "stripe";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -29,6 +31,30 @@ if (ENV === "DEVELOPMENT") {
   app.use(morgan("dev"));
   console.log(`mode: ${ENV}`);
 }
+
+// const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// const YOUR_DOMAIN = process.env.YOUR_DOMAIN || "http://localhost:4242";
+
+// app.post("/api/create-checkout-session", async (req, res, next) => {
+//   try {
+//     const session = await stripe.checkout.sessions.create({
+//       line_items: [
+//         {
+//           price: req.body.priceId || "price_1234", // Better to get from request
+//           quantity: req.body.quantity || 1,
+//         },
+//       ],
+//       mode: "payment",
+//       success_url: `${YOUR_DOMAIN}/success.html`,
+//       cancel_url: `${YOUR_DOMAIN}/cancel.html`,
+//     });
+
+//     res.status(200).json({ url: session.url });
+//   } catch (error) {
+//     console.error("Error creating checkout session:", error.message);
+//     next(new AppError("Failed to create checkout session", 500));
+//   }
+// });
 
 // Mount routes
 app.use("/api/categories", categoryController);
