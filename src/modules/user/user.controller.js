@@ -11,7 +11,7 @@ router.route("/me").get(userService.getLoggedUserData, userService.getUser);
 router.route("/me/change-password").patch(userService.updateLoggedUserPassword);
 router
   .route("/me/addresses")
-  .post(userService.getLoggedUserAddresses)
+  .get(userService.getLoggedUserAddresses)
   .patch(userService.addAddress);
 router.route("/me/addresses/:id").delete(userService.removeAddress);
 router.route("/me/update-account").patch(userService.updateLoggedUserData);
