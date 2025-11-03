@@ -42,7 +42,7 @@ const userSchema = new Schema(
     phone: String,
     password: {
       type: String,
-      required: [true, "Password should be unique"],
+      required: [true, "Password is required"],
       minLength: [6, "Password is too short"],
     },
     role: {
