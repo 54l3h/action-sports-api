@@ -12,7 +12,7 @@ router.route("/me/change-password").patch(userService.updateLoggedUserPassword);
 router
   .route("/me/addresses")
   .get(userService.getLoggedUserAddresses)
-  .patch(userService.addAddress);
+  .post(userService.addAddress);
 router.route("/me/addresses/:id").delete(userService.removeAddress);
 router.route("/me/update-account").patch(userService.updateLoggedUserData);
 router.route("/me/deactivate-account").patch(userService.deactivateLoggedUser);
