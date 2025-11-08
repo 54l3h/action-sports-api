@@ -4,7 +4,7 @@ import Cart from "../../models/cart.model.js";
 import Product from "../../models/product.model.js";
 import Order from "../../models/order.model.js";
 import AppError from "../../utils/AppError.js";
-import * as factory from "../../common/handlerFactory.service.js";
+import Stripe from "stripe";
 
 const calculateTotalItemsAndPrice = (cart) => {
   let totalItems = 0;
@@ -278,4 +278,89 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
     message: "Order canceled successfully",
     data: order,
   });
+});
+
+/**
+ * @description Get checkout session from stripe and send it as a response
+ * @route POST /api/orders/checkout-session/:cartId
+ * @access User
+ */
+export const getCheckoutSession = asyncHandler(async (req, res, next) => {
+  // 1- Get cart via the cartId
+  const { cartId } = req.params;
+  const cart = await Cart.findById(cartId);
+
+  if (!cart) {
+    throw new AppError("Your cart is already empty", 409);
+  }
+
+  // 2- Get order price
+  const cartPrice = cart.totalPrice; // e.g., 29.99 (in dollars)
+  const quantity = cart.totalItems;
+
+  // 3- Create stripe checkout session
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Order for ${req.user.name}`,
+          },
+          unit_amount: Math.round(cartPrice * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    mode: "payment",
+    success_url: `${req.protocol}://${req.host}/api/orders`,
+    cancel_url: `${req.protocol}://${req.host}/api/cart`,
+    customer_email: req.user.email,
+    client_reference_id: cartId.toString(),
+    metadata: {
+      cartId: cartId.toString(),
+      userId: req.user._id.toString(),
+      shippingAddress: JSON.stringify(req.body.shippingAddress),
+    },
+  });
+
+  // 4- Send session to response
+  return res.status(200).json({
+    success: true,
+    data: session,
+  });
+});
+
+export const webhookCheckout = asyncHandler(async (req, res, next) => {
+  let event = req.body;
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const endpointSecret = process.env.ENDPOINT_SECRET;
+  if (endpointSecret) {
+    // Get the signature sent by Stripe
+    const signature = req.headers["stripe-signature"];
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        signature,
+        endpointSecret
+      );
+    } catch (err) {
+      console.log(`Webhook signature verification failed.`, err.message);
+      return response.sendStatus(400);
+    }
+  }
+
+  // Handle the event
+  switch (event.type) {
+    case "checkout.session.completed":
+      // const checkoutData = event.data.object;
+      console.log(`Create order`);
+
+      break;
+    default:
+      console.log(`Unhandled event type ${event.type}.`);
+  }
+  response.send();
 });
