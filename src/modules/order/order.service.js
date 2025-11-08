@@ -1,24 +1,10 @@
 import asyncHandler from "express-async-handler";
-import User, { UserRoles } from "../../models/user.model.js";
+import { UserRoles } from "../../models/user.model.js";
 import Cart from "../../models/cart.model.js";
 import Product from "../../models/product.model.js";
 import Order from "../../models/order.model.js";
 import AppError from "../../utils/AppError.js";
 import Stripe from "stripe";
-
-const calculateTotalItemsAndPrice = (cart) => {
-  let totalItems = 0;
-  let totalPrice = 0;
-  cart.items.forEach((item) => {
-    totalItems += item.qty;
-    totalPrice += item.unitPrice * item.qty;
-  });
-
-  cart.totalItems = totalItems;
-  cart.totalPrice = totalPrice;
-
-  return cart;
-};
 
 /**
  * @description Create cash order
@@ -62,20 +48,7 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
     );
   }
 
-  const bulkOptions = cart.items.map((item) => ({
-    updateOne: {
-      filter: { _id: item.productId },
-      update: { $inc: { quantity: -item.qty, sold: item.qty } },
-    },
-  }));
-
-  await Product.bulkWrite(bulkOptions, {});
-
-  // Clear cart depend on cartId
-  cart.items = [];
-  cart.totalPrice = 0;
-  cart.totalItems = 0;
-  await cart.save();
+  await clearCart(cart);
 
   return res.status(201).json({
     success: true,
@@ -333,89 +306,74 @@ export const getCheckoutSession = asyncHandler(async (req, res, next) => {
   });
 });
 
+const createOrder = async (session) => {
+  const { userId, cartId, shippingAddress } = session.metadata;
+  const amount_total = session.amount_total;
+
+  const cart = await Cart.findById(cartId);
+
+  if (!cart) {
+    throw new AppError(`Cart not found: ${cartId}`, 404);
+  }
+
+  if (!cart.items || cart.items.length === 0) {
+    throw new AppError(`Cart is empty: ${cartId}`, 404);
+  }
+
+  const order = await Order.create({
+    userId,
+    cartItems: cart.items,
+    paymentMethod: "card",
+    totalOrderPrice: parseFloat(amount_total / 100),
+    isPaid: true,
+    paidAt: Date.now(),
+    shippingAddress: JSON.parse(shippingAddress),
+  });
+
+  if (!order) {
+    throw new AppError("Error creating order", 409);
+  }
+
+  return { order, cart };
+};
+
+const clearCart = async (cart) => {
+  const bulkOptions = cart.items.map((item) => ({
+    updateOne: {
+      filter: { _id: item.productId },
+      update: { $inc: { quantity: -item.qty, sold: item.qty } },
+    },
+  }));
+
+  await Product.bulkWrite(bulkOptions, {});
+  await Cart.findByIdAndDelete(cart._id);
+};
+
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const endpointSecret = process.env.ENDPOINT_SECRET;
-  // prefer raw Buffer (when using express.raw), fall back to req.rawBody if you used verify option
   const signature = req.headers["stripe-signature"];
 
   let event;
 
   try {
-    const rawBody =
-      // if express.raw was used for this route, req.body will be a Buffer
-      Buffer.isBuffer(req.body)
-        ? req.body
-        : // if using express.json({ verify: (req, res, buf) => { req.rawBody = buf } })
-        req.rawBody
-        ? req.rawBody
-        : // last resort (not recommended for production): try stringifying (may break signature)
-          Buffer.from(JSON.stringify(req.body), "utf8");
-
-    if (endpointSecret) {
-      event = stripe.webhooks.constructEvent(
-        rawBody,
-        signature,
-        endpointSecret
-      );
-    } else {
-      // If you don't use signing in dev, you can parse body (but not recommended for production)
-      event = req.body;
-    }
+    event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret);
   } catch (err) {
-    console.error("Webhook signature verification failed.", err.message);
+    console.error("Webhook signature verification failed:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
   // Handle the event
-  switch (event.type) {
-    case "checkout.session.completed":
-      console.log("Create order");
-      const session = event.data.object;
+  if (event.type === "checkout.session.completed") {
+    const session = event.data.object;
 
-      const { userId, cartId, shippingAddress } = session.metadata;
-      const amount_total = session.amount_total;
-      console.log({ userId, cartId, shippingAddress, amount_total });
+    // Create order
+    const { order, cart } = await createOrder(session);
 
-      //     {
-      //   _id: new ObjectId('690e077e4808d085bd978ea9'),
-      //   items: [
-      //     {
-      //       productId: new ObjectId('68fd507bdd1cda26b92fa5fc'),
-      //       qty: 2,
-      //       unitPrice: 95,
-      //       _id: new ObjectId('690e077e4808d085bd978eaa')
-      //     }
-      //   ]
-      // }
-
-      const cart = await Cart.findById(cartId);
-      // console.log(cartItems.items);
-
-      console.log(cart);
-
-      const order = await Order.create({
-        userId,
-        cartItems: cart.items,
-        paymentMethod: "card",
-        totalOrderPrice: parseFloat(amount_total / 100),
-        isPaid: true,
-        paidAt: Date.now(),
-        shippingAddress: JSON.parse(shippingAddress),
-      });
-
-      if (!order) {
-        throw new AppError("An error occured while trying to create the order");
-      }
-
-      console.log(order);
-
-      // handle creation logic here, using event.data.object
-      break;
-    default:
-      console.log(`Unhandled event type ${event.type}.`);
+    await clearCart(cart);
+  } else {
+    console.log(`Unhandled event type: ${event.type}`);
   }
 
-  // Respond to Stripe quickly
   return res.status(200).send({ received: true });
 });
