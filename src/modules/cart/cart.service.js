@@ -35,7 +35,7 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
     cart = await Cart.create({
       userId,
       items: [{ productId, unitPrice: product.price }],
-      cartTotal: product.price,
+      totalPrice: product.price,
     });
   } else {
     const productIndex = cart.items.findIndex((item) => {
