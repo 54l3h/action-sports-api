@@ -370,6 +370,8 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   // Handle the event
   switch (event.type) {
     case "checkout.session.completed":
+      console.log(event.data.object.client_reference_id);
+
       console.log("Create order");
       // handle creation logic here, using event.data.object
       break;
