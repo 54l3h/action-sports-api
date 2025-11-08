@@ -26,18 +26,19 @@ const app = express();
 app.use(cors());
 app.use(compression());
 
-app.use(express.json());
-
-if (ENV === "DEVELOPMENT") {
-  app.use(morgan("dev"));
-  console.log(`mode: ${ENV}`);
-}
-
 app.post(
   "/api/webhook-checkout",
   express.raw({ type: "application/json" }),
   webhookCheckout
 );
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+if (ENV === "DEVELOPMENT") {
+  app.use(morgan("dev"));
+  console.log(`mode: ${ENV}`);
+}
 
 // Mount routes
 app.use("/api/categories", categoryController);
