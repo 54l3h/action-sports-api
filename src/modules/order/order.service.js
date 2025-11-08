@@ -371,8 +371,11 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   switch (event.type) {
     case "checkout.session.completed":
       console.log("Create order");
-      const { userId, cartId, shippingAddress, amount_total } =
-        event.data.object.metadata;
+      const session = event.data.object;
+
+      const { userId, cartId, shippingAddress } = session.metadata;
+      const amount_total = session.amount_total;
+      console.log({ userId, cartId, shippingAddress, amount_total });
 
       //     {
       //   _id: new ObjectId('690e077e4808d085bd978ea9'),
@@ -388,6 +391,8 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
 
       const cart = await Cart.findById(cartId);
       // console.log(cartItems.items);
+
+      console.log(cart);
 
       const order = await Order.create({
         userId,
