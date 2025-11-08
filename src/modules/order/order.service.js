@@ -334,6 +334,8 @@ export const getCheckoutSession = asyncHandler(async (req, res, next) => {
 });
 
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const endpointSecret = process.env.ENDPOINT_SECRET;
   // prefer raw Buffer (when using express.raw), fall back to req.rawBody if you used verify option
   const signature = req.headers["stripe-signature"];
 
