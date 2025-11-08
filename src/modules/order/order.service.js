@@ -370,9 +370,23 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   // Handle the event
   switch (event.type) {
     case "checkout.session.completed":
-      console.log(event.data.object.client_reference_id);
-
       console.log("Create order");
+      const { userId, cartId, shippingAddress, amount_total } =
+        event.data.object.metadata;
+
+      const cartItems = await Cart.findById(cartId).select("items");
+      console.log(cartItems);
+
+      // const order = await Order.create({
+      //   userId,
+      //   cartItems: "shippingAddress",
+      //   paymentMethod: "card",
+      //   totalOrderPrice: parseFloat(amount_total / 100),
+      //   isPaid: true,
+      //   paidAt: Date.now(),
+      //   shippingAddress: JSON.parse(shippingAddress),
+      // });
+
       // handle creation logic here, using event.data.object
       break;
     default:
