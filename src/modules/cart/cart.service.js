@@ -21,44 +21,31 @@ const calculateTotalItemsAndPrice = (cart) => {
 export const addProductToCart = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   const { productId } = req.body;
-  console.log(userId, productId);
 
   const product = await Product.findById(productId);
   if (!product) {
-    throw new AppError("This product is not exist", 404);
+    throw new AppError("This product does not exist", 404);
   }
 
-  // Get cart for logged user
   let cart = await Cart.findOne({ userId });
+  
   if (!cart) {
-    // Create cart for logged user with product
     cart = await Cart.create({
       userId,
-      items: [{ productId, unitPrice: product.price }],
+      items: [{ productId, unitPrice: product.price, qty: 1 }],
       totalPrice: product.price,
+      totalItems: 1,
     });
   } else {
-    const productIndex = cart.items.findIndex((item) => {
-      return item.productId.equals(productId);
-    });
+    const productIndex = cart.items.findIndex((item) =>
+      item.productId.equals(productId)
+    );
 
     if (productIndex > -1) {
-      const cartItem = cart.items[productIndex];
-      cartItem.qty += 1;
-      cart.items[productIndex] = cartItem;
+      cart.items[productIndex].qty += 1;
     } else {
-      cart.items.push({ productId, unitPrice: product.price });
+      cart.items.push({ productId, unitPrice: product.price, qty: 1 });
     }
-
-    let totalItems = 0;
-    let totalPrice = 0;
-    cart.items.forEach((item) => {
-      totalItems += item.qty;
-      totalPrice += item.unitPrice * item.qty;
-    });
-
-    cart.totalItems = totalItems;
-    cart.totalPrice = totalPrice;
 
     cart = calculateTotalItemsAndPrice(cart);
     await cart.save();
