@@ -374,18 +374,36 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       const { userId, cartId, shippingAddress, amount_total } =
         event.data.object.metadata;
 
-      const cartItems = await Cart.findById(cartId).select("items");
-      console.log(cartItems);
+      //     {
+      //   _id: new ObjectId('690e077e4808d085bd978ea9'),
+      //   items: [
+      //     {
+      //       productId: new ObjectId('68fd507bdd1cda26b92fa5fc'),
+      //       qty: 2,
+      //       unitPrice: 95,
+      //       _id: new ObjectId('690e077e4808d085bd978eaa')
+      //     }
+      //   ]
+      // }
 
-      // const order = await Order.create({
-      //   userId,
-      //   cartItems: "shippingAddress",
-      //   paymentMethod: "card",
-      //   totalOrderPrice: parseFloat(amount_total / 100),
-      //   isPaid: true,
-      //   paidAt: Date.now(),
-      //   shippingAddress: JSON.parse(shippingAddress),
-      // });
+      const cart = await Cart.findById(cartId);
+      // console.log(cartItems.items);
+
+      const order = await Order.create({
+        userId,
+        cartItems: cart.items,
+        paymentMethod: "card",
+        totalOrderPrice: parseFloat(amount_total / 100),
+        isPaid: true,
+        paidAt: Date.now(),
+        shippingAddress: JSON.parse(shippingAddress),
+      });
+
+      if (!order) {
+        throw new AppError("An error occured while trying to create the order");
+      }
+
+      console.log(order);
 
       // handle creation logic here, using event.data.object
       break;
