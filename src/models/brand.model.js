@@ -13,7 +13,7 @@ const brandSchama = new Schema(
       type: String,
       required: [true, "Brand description is required"],
       minLength: [24, "Brand description is too short"],
-      maxLength: [2000, "Brand description is too long"],
+      maxLength: [300, "Brand description is too long"],
     },
     slug: {
       type: String,

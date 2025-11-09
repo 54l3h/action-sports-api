@@ -18,7 +18,7 @@ const subCategorySchema = new Schema(
       type: String,
       required: [true, "SubCategory description is required"],
       minLength: [24, "SubCategory description is too short"],
-      maxLength: [2000, "SubCategory description is too long"],
+      maxLength: [300, "SubCategory description is too long"],
     },
     image: { secure_url: String, public_id: String },
     category: {

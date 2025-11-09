@@ -8,6 +8,7 @@ import cloud from "../config/cloudinary.js";
 export const deleteOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
+      
     const document = await Model.findByIdAndDelete(id); // no { new: true } needed
 
     if (!document) {
@@ -191,7 +192,7 @@ export const getAll = (Model) => {
     const { page = 1, limit = 10 } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
-    
+
     const total = await Model.countDocuments();
     const documents = await Model.find({}).skip(skip).limit(Number(limit));
 

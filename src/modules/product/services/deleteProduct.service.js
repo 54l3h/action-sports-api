@@ -1,5 +1,5 @@
 import { deleteOne } from "../../../common/handlerFactory.service.js";
-import Product from "../../../models/category.model.js";
+import Product from "../../../models/product.model.js";
 
 /**
  * @desc    Delete a product by ID

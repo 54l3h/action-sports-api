@@ -3,7 +3,6 @@ import Product from "../../../models/product.model.js";
 import AppError from "../../../utils/AppError.js";
 
 export const getProducts = asyncHandler(async (req, res, next) => {
-
   // Pagination
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
@@ -24,7 +23,7 @@ export const getProducts = asyncHandler(async (req, res, next) => {
 
   const filter = {};
 
-  // Get Category, Subcategory or Brand product 
+  // Get Category, Subcategory or Brand product
   if (categoryId) filter.category = categoryId;
   if (subcategoryId) filter.subCategory = subcategoryId;
   if (brandId) filter.brand = brandId;
@@ -72,6 +71,8 @@ export const getProducts = asyncHandler(async (req, res, next) => {
       { description: { $regex: keyword, $options: "i" } },
     ];
   }
+
+  filter.quantity = { $gt: 0 };
 
   const total = await Product.countDocuments(filter);
 

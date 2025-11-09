@@ -38,12 +38,17 @@ router
   .patch(
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
+    uploadMultipleImages("images"),
     productValidationSchema.updateProduct,
     validationMiddleware,
     productService.updateProduct
   )
   .delete(
     authenticationMiddleware,
+    (req, res, next) => {
+      console.log("done");
+      next();
+    },
     authorizationMiddleware(UserRoles.ADMIN),
     productValidationSchema.deleteProduct,
     validationMiddleware,
