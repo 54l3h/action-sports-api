@@ -35,7 +35,8 @@ app.use(compression());
 // For Paytabs
 app.post(
   "/api/payment/paytabs/callback",
-  express.raw({ type: "application/json" }),
+  express.json(),
+  express.urlencoded({ extended: true }),
   webhookCheckout
 );
 

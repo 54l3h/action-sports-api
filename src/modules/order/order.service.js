@@ -456,5 +456,45 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
 });
 
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
-  console.log({ reqBody: req.body });
+  try {
+    console.log("=== PayTabs Callback Received ===");
+    console.log("Headers:", req.headers);
+    console.log("Body:", req.body);
+    console.log("Query:", req.query);
+
+    // PayTabs might send data in body or query params
+    const paymentData = req.body || req.query;
+
+    console.log("Payment Data:", paymentData);
+
+    // Extract important fields (adjust based on what PayTabs sends)
+    const {
+      tran_ref,
+      cart_id,
+      payment_result,
+      response_status,
+      response_code,
+      response_message,
+    } = paymentData;
+
+    // Process the payment based on status
+    if (payment_result?.response_status === "A") {
+      // Payment approved - update your database
+      console.log("Payment approved:", cart_id);
+      // TODO: Update order status in your database
+    }
+
+    // IMPORTANT: Send a 200 response to acknowledge receipt
+    res.status(200).json({
+      received: true,
+      message: "Webhook processed successfully",
+    });
+  } catch (error) {
+    console.error("Webhook Error:", error);
+    // Still send 200 to prevent retries for invalid data
+    res.status(200).json({
+      received: true,
+      error: error.message,
+    });
+  }
 });
