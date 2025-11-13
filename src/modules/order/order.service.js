@@ -416,9 +416,7 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       cart_description: cartDescription,
       cart_currency: "EGP", // change currency if needed
       cart_amount: cart.totalPrice,
-      callback: process,
-      env,
-      PAYTABS_CALLBACK_URL, // your server-side callback URL
+      callback: process.env.PAYTABS_CALLBACK_URL, // your server-side callback URL
       return: "https://yourdomain.com/yourpage", // URL user will return to
       customer_details: {
         name: req.user.name,
