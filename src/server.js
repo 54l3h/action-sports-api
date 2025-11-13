@@ -32,16 +32,34 @@ app.use(compression());
 //   webhookCheckout
 // );
 
-// For Paytabs
-app.post(
-  "/api/payment/paytabs/callback",
-  express.json(),
-  express.urlencoded({ extended: true }),
-  webhookCheckout
-);
+// Test
+// Add this BEFORE your webhook route
+
+
+// // For Paytabs
+// app.post(
+//   "/api/payment/paytabs/callback",
+//   express.json(),
+//   express.urlencoded({ extended: true }),
+//   webhookCheckout
+// );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.get("/api/payment/paytabs/test", (req, res) => {
+  res.json({ message: "PayTabs endpoint is reachable", timestamp: new Date() });
+});
+
+app.post("/api/payment/paytabs/callback", (req, res) => {
+  console.log("🔔 WEBHOOK HIT!");
+  console.log("Method:", req.method);
+  console.log("Headers:", JSON.stringify(req.headers, null, 2));
+  console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("Query:", JSON.stringify(req.query, null, 2));
+
+  res.status(200).json({ received: true });
+});
 
 if (ENV === "DEVELOPMENT") {
   app.use(morgan("dev"));
