@@ -456,5 +456,5 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
 });
 
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
-  console.log({ req });
+  console.log({ reqBody: req.body });
 });
