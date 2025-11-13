@@ -44,8 +44,8 @@ export const updateUser = [
     .optional()
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be between 2 and 32 characters long"),
+    .isLength({ min: 2, max: 256 })
+    .withMessage("Name must be between 2 and 256 characters long"),
 ];
 
 export const deleteUser = [

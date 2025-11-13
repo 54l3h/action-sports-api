@@ -20,7 +20,7 @@ export const createProduct = [
     .withMessage("Product description is required")
     .isString()
     .withMessage("Product description must be a string")
-    .isLength({ min: 24, max: 500 })
+    .isLength({ min: 24, max: 700 })
     .withMessage("Product description must be between 24 and 500 characters"),
   body("quantity")
     .exists({ checkFalsy: true })
@@ -75,7 +75,7 @@ export const updateProduct = [
     .notEmpty()
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 3, max: 32 })
+    .isLength({ min: 3, max: 256 })
     .withMessage("Name must be between 3 and 32 characters long"),
   body("title")
     .optional()
@@ -89,7 +89,7 @@ export const updateProduct = [
     .notEmpty()
     .isString()
     .withMessage("Product description must be a string")
-    .isLength({ min: 24, max: 500 })
+    .isLength({ min: 24, max: 700 })
     .withMessage("Product description must be between 24 and 500 characters"),
   body("quantity")
     .optional()

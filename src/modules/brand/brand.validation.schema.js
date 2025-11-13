@@ -6,8 +6,8 @@ export const createBrand = [
     .withMessage("Name is required")
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be between 2 and 32 characters long"),
+    .isLength({ min: 2, max: 256 })
+    .withMessage("Name must be between 2 and 256 characters long"),
 ];
 
 export const getBrand = [
@@ -32,8 +32,8 @@ export const updateBrand = [
     .optional()
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be between 2 and 32 characters long"),
+    .isLength({ min: 2, max: 256 })
+    .withMessage("Name must be between 2 and 256 characters long"),
 ];
 
 export const deleteBrand = [

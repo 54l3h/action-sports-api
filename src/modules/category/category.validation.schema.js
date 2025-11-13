@@ -6,8 +6,8 @@ export const createCategory = [
     .withMessage("Name is required")
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 3, max: 32 })
-    .withMessage("Name must be between 3 and 32 characters long"),
+    .isLength({ min: 3, max: 256 })
+    .withMessage("Name must be between 3 and 256 characters long"),
 ];
 
 export const getCategory = [
@@ -32,8 +32,8 @@ export const updateCategory = [
     .optional()
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 3, max: 32 })
-    .withMessage("Name must be between 3 and 32 characters long"),
+    .isLength({ min: 3, max: 256 })
+    .withMessage("Name must be between 3 and 256 characters long"),
 ];
 
 export const deleteCategory = [

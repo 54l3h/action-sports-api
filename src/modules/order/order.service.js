@@ -5,6 +5,7 @@ import Product from "../../models/product.model.js";
 import Order from "../../models/order.model.js";
 import AppError from "../../utils/AppError.js";
 import Stripe from "stripe";
+import axios from "axios";
 
 /**
  * @description Create cash order
@@ -349,31 +350,113 @@ const clearCart = async (cart) => {
   await Cart.findByIdAndDelete(cart._id);
 };
 
-export const webhookCheckout = asyncHandler(async (req, res, next) => {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-  const endpointSecret = process.env.ENDPOINT_SECRET;
-  const signature = req.headers["stripe-signature"];
+// export const webhookCheckout = asyncHandler(async (req, res, next) => {
+//   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+//   const endpointSecret = process.env.ENDPOINT_SECRET;
+//   const signature = req.headers["stripe-signature"];
 
-  let event;
+//   let event;
 
+//   try {
+//     event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret);
+//   } catch (err) {
+//     console.error("Webhook signature verification failed:", err.message);
+//     return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
+
+//   // Handle the event
+//   if (event.type === "checkout.session.completed") {
+//     const session = event.data.object;
+
+//     // Create order
+//     const { order, cart } = await createOrder(session);
+
+//     await clearCart(cart);
+//   } else {
+//     console.log(`Unhandled event type: ${event.type}`);
+//   }
+
+//   return res.status(200).send({ received: true });
+// });
+
+/**
+ * The user come with their token so you can check their token:
+ * You can get the cartId
+ * You can get the cart description
+ * You can get the customer name
+ * You can get the customer email
+ * You can get the customer phone
+ */
+export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   try {
-    event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret);
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    // Extract the user
+    const cart = await Cart.findOne({ userId: req.user._id }).populate(
+      "items.productId",
+      "name"
+    );
+    if (!cart || !cart.items.length > 0) {
+      throw new AppError("Your cart is already empty", 409);
+    }
+    // Extract order info from the request body or define them here
+
+    // const cartItems = await cart.populate({ path: "items" });
+    const cartItems = cart.items;
+    console.log(cartItems);
+    const cartDescriptionArray = cartItems.map((item) => {
+      return `${item.productId.name} * ${item.qty}`;
+    });
+
+    const cartDescription = cartDescriptionArray.join(", ");
+
+    const payload = {
+      profile_id: process.env.PAYTABS_PROFILE_ID, // replace with your profile ID
+      tran_type: "sale",
+      tran_class: "ecom",
+      cart_id: cart._id, // unique order reference
+      cart_description: cartDescription,
+      cart_currency: "EGP", // change currency if needed
+      cart_amount: cart.totalPrice,
+      callback: process,
+      env,
+      PAYTABS_CALLBACK_URL, // your server-side callback URL
+      return: "https://yourdomain.com/yourpage", // URL user will return to
+      customer_details: {
+        name: req.user.name,
+        email: req.user.email,
+        phone: req.user.phone,
+      },
+    };
+
+    const response = await axios.post(
+      "https://secure-egypt.paytabs.com/payment/request",
+      payload,
+      {
+        headers: {
+          Authorization: process.env.SERVER_KEY, // replace with your server key
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    const data = response.data;
+
+    // Handle redirection or immediate transaction results
+    if (data.redirect_url) {
+      // Customer needs to be redirected for 3D Secure, etc.
+      return res.json({ redirectUrl: data.redirect_url });
+    } else {
+      // Transaction processed without redirection
+      return res.json(data);
+    }
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    return res.status(500).json({
+      message: "Payment request failed",
+      error: error.response?.data || error.message,
+    });
   }
+});
 
-  // Handle the event
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-
-    // Create order
-    const { order, cart } = await createOrder(session);
-
-    await clearCart(cart);
-  } else {
-    console.log(`Unhandled event type: ${event.type}`);
-  }
-
-  return res.status(200).send({ received: true });
+export const webhookCheckout = asyncHandler(async (req, res, next) => {
+  console.log({ req });
 });

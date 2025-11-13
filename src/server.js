@@ -26,8 +26,15 @@ const app = express();
 app.use(cors());
 app.use(compression());
 
+// app.post(
+//   "/api/webhook-checkout",
+//   express.raw({ type: "application/json" }),
+//   webhookCheckout
+// );
+
+// For Paytabs
 app.post(
-  "/api/webhook-checkout",
+  "/api/payment/paytabs/callback",
   express.raw({ type: "application/json" }),
   webhookCheckout
 );

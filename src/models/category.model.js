@@ -7,7 +7,7 @@ const categorySchama = new Schema(
       required: [true, "Category name is required"],
       unique: [true, "Category name should be unique"],
       minLength: [3, "Category name is too short"],
-      maxLength: [32, "Category name is too long"],
+      maxLength: [256, "Category name is too long"],
     },
     slug: {
       type: String,
@@ -17,7 +17,7 @@ const categorySchama = new Schema(
       type: String,
       required: [true, "Category description is required"],
       minLength: [24, "Category description is too short"],
-      maxLength: [300, "Category description is too long"],
+      maxLength: [700, "Category description is too long"],
     },
     image: { secure_url: String, public_id: String },
   },

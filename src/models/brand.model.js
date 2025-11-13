@@ -7,13 +7,13 @@ const brandSchama = new Schema(
       required: [true, "Brand name is required"],
       unique: [true, "Brand name should be unique"],
       minLength: [2, "Brand name is too short"],
-      maxLength: [32, "Brand name is too long"],
+      maxLength: [256, "Brand name is too long"],
     },
     description: {
       type: String,
       required: [true, "Brand description is required"],
       minLength: [24, "Brand description is too short"],
-      maxLength: [300, "Brand description is too long"],
+      maxLength: [700, "Brand description is too long"],
     },
     slug: {
       type: String,

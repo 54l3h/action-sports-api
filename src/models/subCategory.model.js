@@ -8,7 +8,7 @@ const subCategorySchema = new Schema(
       required: [true, "SubCategory name is required"],
       unique: [true, "SubCategory name should be unique"],
       minLength: [2, "SubCategory name is too short"],
-      maxLength: [32, "SubCategory name is too long"],
+      maxLength: [256, "SubCategory name is too long"],
     },
     slug: {
       type: String,
@@ -18,7 +18,7 @@ const subCategorySchema = new Schema(
       type: String,
       required: [true, "SubCategory description is required"],
       minLength: [24, "SubCategory description is too short"],
-      maxLength: [300, "SubCategory description is too long"],
+      maxLength: [700, "SubCategory description is too long"],
     },
     image: { secure_url: String, public_id: String },
     category: {

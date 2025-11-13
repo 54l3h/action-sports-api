@@ -45,10 +45,6 @@ router
   )
   .delete(
     authenticationMiddleware,
-    (req, res, next) => {
-      console.log("done");
-      next();
-    },
     authorizationMiddleware(UserRoles.ADMIN),
     productValidationSchema.deleteProduct,
     validationMiddleware,

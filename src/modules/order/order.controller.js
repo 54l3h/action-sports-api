@@ -20,6 +20,12 @@ router.get(
   orderService.getLoggedUserOrders
 );
 
+router.post(
+  "/pay-with-paytabs",
+  authorizationMiddleware(UserRoles.USER),
+  orderService.payWithPayTabs
+);
+
 // Create checkout session
 router.post(
   "/checkout-session/:cartId",

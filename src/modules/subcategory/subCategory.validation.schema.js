@@ -6,8 +6,8 @@ export const createSubCategory = [
     .withMessage("Name is required")
     .isString()
     .withMessage("Name must be a string")
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be between 2 and 32 characters long"),
+    .isLength({ min: 2, max: 256 })
+    .withMessage("Name must be between 2 and 256 characters long"),
   param("categoryId").isMongoId().withMessage("Invalid category ID"),
 ];
 // done
@@ -38,8 +38,8 @@ export const updateSubCategory = [
   body("name")
     .optional()
     .isString()
-    .isLength({ min: 2, max: 32 })
-    .withMessage("Name must be 2-32 chars"),
+    .isLength({ min: 2, max: 256 })
+    .withMessage("Name must be 2-256 chars"),
 ];
 
 export const deleteSubCategory = [
