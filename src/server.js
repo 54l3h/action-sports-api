@@ -12,6 +12,7 @@ import reviewController from "./modules/review/review.controller.js";
 import cartController from "./modules/cart/cart.controller.js";
 import orderController from "./modules/order/order.controller.js";
 import messageController from "./modules/message/message.controller.js";
+import paymentSettingController from "./modules/payment-setting/paymentSetting.controller.js";
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 import cors from "cors";
@@ -33,7 +34,7 @@ app.post(
   express.urlencoded({ extended: true }),
   async (req, res) => {
     const timestamp = new Date().toISOString();
-    
+
     try {
       console.log("=".repeat(60));
       console.log(`🔔 PAYTABS IPN RECEIVED at ${timestamp}`);
@@ -106,6 +107,7 @@ app.use("/api/reviews", reviewController);
 app.use("/api/cart", cartController);
 app.use("/api/orders", orderController);
 app.use("/api/messages", messageController);
+app.use("/api/payment-settings", paymentSettingController);
 
 // Handle undefined routes
 app.use((req, res, next) => {
