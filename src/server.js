@@ -26,31 +26,7 @@ const app = express();
 app.use(cors());
 app.use(compression());
 
-// app.post(
-//   "/api/webhook-checkout",
-//   express.raw({ type: "application/json" }),
-//   webhookCheckout
-// );
-
-// Test
-// Add this BEFORE your webhook route
-
-
-// // For Paytabs
-// app.post(
-//   "/api/payment/paytabs/callback",
-//   express.json(),
-//   express.urlencoded({ extended: true }),
-//   webhookCheckout
-// );
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-app.get("/api/payment/paytabs/test", (req, res) => {
-  res.json({ message: "PayTabs endpoint is reachable", timestamp: new Date() });
-});
-
+// PayTabs webhook MUST be BEFORE global middleware
 app.post(
   "/api/payment/paytabs/callback",
   express.json(),
@@ -88,7 +64,6 @@ app.post(
 
       if (response_status === "A") {
         console.log("✅ Payment APPROVED for cart:", cart_id);
-        // Call your webhookCheckout function
         await webhookCheckout(paymentData);
       } else {
         console.log("❌ Payment NOT approved. Status:", response_status);
@@ -96,7 +71,6 @@ app.post(
 
       console.log("=".repeat(60));
 
-      // Always respond with 200
       return res.status(200).json({
         received: true,
         timestamp: timestamp,
@@ -111,6 +85,10 @@ app.post(
     }
   }
 );
+
+// ADD THESE BACK - Your other routes need them!
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 if (ENV === "DEVELOPMENT") {
   app.use(morgan("dev"));
@@ -141,26 +119,21 @@ const server = app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// --- START: Global Error Handlers (Outside Express) ---
-// Handle uncaught synchronous exceptions (programming errors)
+// Global Error Handlers
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION");
   console.error(err.name, err.message, err.stack);
-  // Close server first, then exit
   server.close(() => {
     process.exit(1);
   });
 });
 
-// Handle unhandled promise rejections (async errors not caught)
 process.on("unhandledRejection", async (reason, promise) => {
   console.error("UNHANDLED REJECTION");
   console.error({ promise, reason });
-  // Close server first, then exit
   server.close(() => {
     process.exit(1);
   });
 });
-// --- END: Global Error Handlers ---
 
 await connectToDB();

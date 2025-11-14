@@ -408,6 +408,11 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
 
     const cartDescription = cartDescriptionArray.join(", ");
 
+    console.log({
+      profile_id: process.env.PAYTABS_PROFILE_ID,
+      callback: process.env.PAYTABS_CALLBACK_URL,
+    });
+
     const payload = {
       profile_id: process.env.PAYTABS_PROFILE_ID, // replace with your profile ID
       tran_type: "sale",
