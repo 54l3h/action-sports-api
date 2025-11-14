@@ -9,7 +9,7 @@ const router = Router();
 router.get(
   "/",
   authenticationMiddleware,
-  authorizationMiddleware(UserRoles.ADMIN),
+  authorizationMiddleware(UserRoles.USER, UserRoles.ADMIN),
   paymentSettingService.getStatus
 );
 router.patch(
