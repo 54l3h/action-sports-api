@@ -27,67 +27,13 @@ const app = express();
 app.use(cors());
 app.use(compression());
 
-// PayTabs webhook MUST be BEFORE global middleware
 app.post(
   "/api/payment/paytabs/callback",
   express.json(),
   express.urlencoded({ extended: true }),
-  async (req, res) => {
-    const timestamp = new Date().toISOString();
-
-    try {
-      console.log("=".repeat(60));
-      console.log(`🔔 PAYTABS IPN RECEIVED at ${timestamp}`);
-      console.log("=".repeat(60));
-      console.log("Method:", req.method);
-      console.log("Content-Type:", req.headers["content-type"]);
-      console.log("Headers:", JSON.stringify(req.headers, null, 2));
-      console.log("Body:", JSON.stringify(req.body, null, 2));
-      console.log("Query:", JSON.stringify(req.query, null, 2));
-      console.log("=".repeat(60));
-
-      const paymentData = req.body || req.query;
-
-      const {
-        tran_ref,
-        cart_id,
-        response_status,
-        response_code,
-        response_message,
-      } = paymentData;
-
-      console.log("📊 Parsed Data:");
-      console.log("  - Transaction Ref:", tran_ref);
-      console.log("  - Cart ID:", cart_id);
-      console.log("  - Status:", response_status);
-      console.log("  - Code:", response_code);
-      console.log("  - Message:", response_message);
-
-      if (response_status === "A") {
-        console.log("✅ Payment APPROVED for cart:", cart_id);
-        await webhookCheckout(paymentData);
-      } else {
-        console.log("❌ Payment NOT approved. Status:", response_status);
-      }
-
-      console.log("=".repeat(60));
-
-      return res.status(200).json({
-        received: true,
-        timestamp: timestamp,
-        message: "Webhook processed successfully",
-      });
-    } catch (error) {
-      console.error("💥 Webhook Error:", error);
-      return res.status(200).json({
-        received: true,
-        error: error.message,
-      });
-    }
-  }
+  webhookCheckout
 );
 
-// ADD THESE BACK - Your other routes need them!
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

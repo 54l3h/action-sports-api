@@ -67,7 +67,7 @@ router.patch(
 
 // Update delivery status
 router.patch(
-  "/:id/deliver",
+  "/:id/status/:status",
   authorizationMiddleware(UserRoles.ADMIN),
   orderService.updateOrderDeliveryStatus
 );

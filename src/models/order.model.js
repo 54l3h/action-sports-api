@@ -1,6 +1,13 @@
 import { model, Schema, Types } from "mongoose";
 import Cart from "./cart.model.js";
 
+export const ORDER_DELIVERY_STATUS = {
+  NEW: "new",
+  PREPARING: "preparing",
+  IN_TRANSIT: "in_transit",
+  DELIVERED: "delivered",
+};
+
 const orderSchema = new Schema(
   {
     userId: {
@@ -8,6 +15,7 @@ const orderSchema = new Schema(
       ref: "User",
       required: true,
     },
+    transactionRef: String,
     cartItems: [Cart.schema.path("items").schema], // reuse cart items schema
     taxPrice: {
       type: Number,
@@ -26,6 +34,11 @@ const orderSchema = new Schema(
       city: String,
       postalCode: String,
     },
+    cartDescription: String,
+    cartId: {
+      type: Types.ObjectId,
+      ref: "Cart",
+    },
     paymentMethod: {
       type: String,
       enum: ["card", "cash"],
@@ -39,6 +52,11 @@ const orderSchema = new Schema(
     isDelivered: {
       type: Boolean,
       default: false,
+    },
+    deliveryStatus: {
+      type: String,
+      enum: Object.values(ORDER_DELIVERY_STATUS),
+      default: ORDER_DELIVERY_STATUS.NEW,
     },
     deliveredAt: Date,
     isCanceled: {

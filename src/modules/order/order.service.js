@@ -2,7 +2,7 @@ import asyncHandler from "express-async-handler";
 import { UserRoles } from "../../models/user.model.js";
 import Cart from "../../models/cart.model.js";
 import Product from "../../models/product.model.js";
-import Order from "../../models/order.model.js";
+import Order, { ORDER_DELIVERY_STATUS } from "../../models/order.model.js";
 import AppError from "../../utils/AppError.js";
 import Stripe from "stripe";
 import axios from "axios";
@@ -171,38 +171,43 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res, next) => {
     data: order,
   });
 });
+
 /**
- * @description Update order delivery status (mark as delivered)
- * @route PATCH /api/orders/:id/deliver
- * @access Admin
+ * @route PATCH /api/orders/:id/status/:status
  */
 export const updateOrderDeliveryStatus = asyncHandler(
   async (req, res, next) => {
-    const { id } = req.params;
+    const { id, status } = req.params;
 
-    // Find the order by ID
+    // Validate status in lowercase
+    if (!Object.values(ORDER_DELIVERY_STATUS).includes(status)) {
+      throw new AppError("Invalid delivery status", 400);
+    }
+
     const order = await Order.findById(id);
     if (!order) {
       throw new AppError("Order not found", 404);
     }
 
-    // Prevent updating if already delivered
+    // Prevent updating after it's delivered
     if (order.isDelivered) {
-      throw new AppError(
-        "This order has already been marked as delivered",
-        400
-      );
+      throw new AppError("Order has already been delivered", 400);
     }
 
-    // Update delivery status
-    order.isDelivered = true;
-    order.deliveredAt = Date.now();
+    // Update status
+    order.deliveryStatus = status;
+
+    // Auto-mark delivered
+    if (status === ORDER_DELIVERY_STATUS.DELIVERED) {
+      order.isDelivered = true;
+      order.deliveredAt = Date.now();
+    }
 
     await order.save();
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
-      message: "Order delivery status updated successfully",
+      message: "Delivery status updated successfully",
       data: order,
     });
   }
@@ -461,45 +466,227 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
 });
 
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
-  try {
-    console.log("=== PayTabs Callback Received ===");
-    console.log("Headers:", req.headers);
-    console.log("Body:", req.body);
-    console.log("Query:", req.query);
+  const timestamp = new Date().toISOString();
 
-    // PayTabs might send data in body or query params
+  try {
+    console.log("=".repeat(60));
+    console.log(`🔔 PAYTABS IPN RECEIVED at ${timestamp}`);
+    console.log("=".repeat(60));
+    console.log("Body:", JSON.stringify(req.body, null, 2));
+    console.log("=".repeat(60));
+
     const paymentData = req.body || req.query;
 
-    console.log("Payment Data:", paymentData);
-
-    // Extract important fields (adjust based on what PayTabs sends)
     const {
       tran_ref,
       cart_id,
       payment_result,
-      response_status,
-      response_code,
-      response_message,
+      cart_amount,
+      customer_details,
+      shipping_details,
+      cart_description,
     } = paymentData;
 
-    // Process the payment based on status
-    if (payment_result?.response_status === "A") {
-      // Payment approved - update your database
-      console.log("Payment approved:", cart_id);
-      // TODO: Update order status in your database
+    const responseStatus = payment_result?.response_status;
+    const responseCode = payment_result?.response_code;
+    const responseMessage = payment_result?.response_message;
+
+    console.log("📊 Parsed Data:");
+    console.log("  - Transaction Ref:", tran_ref);
+    console.log("  - Cart ID:", cart_id);
+    console.log("  - Status:", responseStatus);
+    console.log("  - Code:", responseCode);
+    console.log("  - Message:", responseMessage);
+
+    // Check if payment is approved (status "A")
+    if (responseStatus === "A") {
+      console.log("✅ Payment APPROVED for cart:", cart_id);
+
+      // Find the cart
+      const cart = await Cart.findById(cart_id);
+
+      if (!cart) {
+        console.log("❌ Cart not found:", cart_id);
+        return res.status(200).json({
+          received: true,
+          error: "Cart not found",
+        });
+      }
+
+      if (!cart.items || cart.items.length === 0) {
+        console.log("❌ Cart is empty:", cart_id);
+        return res.status(200).json({
+          received: true,
+          error: "Cart is empty",
+        });
+      }
+
+      // Create the order - FIXED: Use "card" not "paytabs"
+      const order = await Order.create({
+        userId: cart.userId,
+        cartItems: cart.items,
+        paymentMethod: "card", // ✅ FIXED: PayTabs is a card payment
+        totalOrderPrice: parseFloat(cart_amount),
+        isPaid: true,
+        paidAt: Date.now(),
+        transactionRef: tran_ref,
+        cartDescription: cart_description,
+        shippingAddress: {
+          name: shipping_details?.name || customer_details?.name,
+          details: shipping_details?.street1 || customer_details?.street1, // Use "details" per schema
+          city: shipping_details?.city || customer_details?.city,
+          phone: customer_details?.phone || "",
+          postalCode: shipping_details?.zip || customer_details?.zip || "", // Use "postalCode" per schema
+        },
+      });
+
+      console.log("✅ Order created successfully:", order._id);
+
+      // Clear the cart and update product quantities
+      // This function already decrements inventory: quantity: -item.qty, sold: item.qty
+      await clearCart(cart);
+
+      console.log("✅ Cart cleared and inventory updated");
+    } else {
+      console.log("❌ Payment NOT approved. Status:", responseStatus);
+      console.log("   Message:", responseMessage);
     }
 
-    // IMPORTANT: Send a 200 response to acknowledge receipt
-    res.status(200).json({
+    console.log("=".repeat(60));
+
+    // IMPORTANT: Always respond with 200
+    return res.status(200).json({
       received: true,
+      timestamp: timestamp,
       message: "Webhook processed successfully",
     });
   } catch (error) {
-    console.error("Webhook Error:", error);
-    // Still send 200 to prevent retries for invalid data
-    res.status(200).json({
+    console.error("💥 Webhook Error:", error.message);
+    console.error("Stack:", error.stack);
+    // Still return 200 to prevent retries
+    return res.status(200).json({
       received: true,
       error: error.message,
     });
   }
 });
+
+// POST /api/orders/pay-with-paytabs 200 763.423 ms - 120
+// ============================================================
+// 🔔 PAYTABS IPN RECEIVED at 2025-11-16T06:07:46.849Z
+// ============================================================
+// Method: POST
+// Content-Type: application/json
+// Headers: {
+//   "host": "neglectful-vanna-robeless.ngrok-free.dev",
+//   "user-agent": "IPN/1.0",
+//   "content-length": "1287",
+//   "accept-encoding": "gzip",
+//   "client-key": "CPK266-627T6N-MGDK66-PNGN6T",
+//   "content-type": "application/json",
+//   "signature": "7439c1ffff899b9120623a398b7428e179ab4ce3fe285e7e66fa8656efbfa56a",
+//   "x-forwarded-for": "102.217.68.135",
+//   "x-forwarded-host": "neglectful-vanna-robeless.ngrok-free.dev",
+//   "x-forwarded-proto": "https"
+// }
+// Body: {
+//   "tran_ref": "TST2532002198164",
+//   "merchant_id": 85904,
+//   "profile_id": 148004,
+//   "cart_id": "691511a991cd1ade8b27b8d6",
+//   "cart_description": "طقم اوزان اقراص اولمبي كامل * 2, حامل دامبلز Dumbbell rack 20 pc * 1",
+//   "cart_currency": "EGP",
+//   "cart_amount": "400.00",
+//   "tran_currency": "EGP",
+//   "tran_total": "400.00",
+//   "tran_type": "Sale",
+//   "tran_class": "ECom",
+//   "customer_details": {
+//     "name": "Mohammed Saleh",
+//     "email": "user@gmail.com",
+//     "street1": "Address",
+//     "city": "Alexandria",
+//     "state": "ALX",
+//     "country": "EG",
+//     "zip": "225",
+//     "ip": "41.47.131.225"
+//   },
+//   "shipping_details": {
+//     "name": "Mohammed Saleh",
+//     "email": "user@gmail.com",
+//     "street1": "Address",
+//     "city": "Alexandria",
+//     "state": "ALX",
+//     "country": "EG",
+//     "zip": "225"
+//   },
+//   "payment_result": {
+//     "response_status": "A",
+//     "response_code": "G73264",
+//     "response_message": "Authorised",
+//     "acquirer_ref": "TRAN0001.69196A30.000C88FE",
+//     "cvv_result": " ",
+//     "avs_result": " ",
+//     "transaction_time": "2025-11-16T06:07:44Z"
+//   },
+//   "payment_info": {
+//     "payment_method": "Visa",
+//     "card_type": "Credit",
+//     "card_scheme": "Visa",
+//     "payment_description": "4111 11## #### 1111",
+//     "expiryMonth": 12,
+//     "expiryYear": 2028
+//   },
+//   "threeDSDetails": {
+//     "responseLevel": 1,
+//     "responseStatus": 1,
+//     "enrolled": "N",
+//     "paResStatus": "",
+//     "eci": "",
+//     "cavv": "",
+//     "ucaf": "",
+//     "threeDSVersion": "Test/Simulation"
+//   },
+//   "ipn_trace": "IPNS0001.69196A30.0000F48A",
+//   "paymentChannel": "Payment Page"
+// }
+// Query: {}
+// ============================================================
+// 📊 Parsed Data:
+//   - Transaction Ref: TST2532002198164
+//   - Cart ID: 691511a991cd1ade8b27b8d6
+//   - Status: A
+//   - Code: G73264
+//   - Message: Authorised
+// ✅ Payment APPROVED for cart: 691511a991cd1ade8b27b8d6
+// 💥 Webhook Error: Error: Order validation failed: paymentMethod: `paytabs` is not a valid enum value for path `paymentMethod`.
+//     at ValidationError.inspect (/home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/error/validation.js:52:26)
+//     at formatValue (node:internal/util/inspect:829:19)
+//     at inspect (node:internal/util/inspect:372:10)
+//     at formatWithOptionsInternal (node:internal/util/inspect:2325:40)
+//     at formatWithOptions (node:internal/util/inspect:2187:10)
+//     at console.value (node:internal/console/constructor:350:14)
+//     at console.warn (node:internal/console/constructor:383:61)
+//     at file:///home/mohammed/Desktop/start_again/action-sports-api/src/modules/order/order.service.js:562:13
+//     at process.processTicksAndRejections (node:internal/process/task_queues:95:5) {
+//   errors: {
+//     paymentMethod: ValidatorError: `paytabs` is not a valid enum value for path `paymentMethod`.
+//         at validate (/home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/schemaType.js:1417:13)
+//         at SchemaType.doValidate (/home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/schemaType.js:1401:7)
+//         at /home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/document.js:3115:18
+//         at process.processTicksAndRejections (node:internal/process/task_queues:77:11) {
+//       properties: [Object],
+//       kind: 'enum',
+//       path: 'paymentMethod',
+//       value: 'paytabs',
+//       reason: undefined,
+//       [Symbol(mongoose#validatorError)]: true
+//     }
+//   },
+//   _message: 'Order validation failed'
+// }
+// Stack: ValidationError: Order validation failed: paymentMethod: `paytabs` is not a valid enum value for path `paymentMethod`.
+//     at Document.invalidate (/home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/document.js:3362:32)
+//     at /home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/document.js:3123:17
+//     at /home/mohammed/Desktop/start_again/action-sports-api/node_modules/mongoose/lib/schemaType.js:1420:9
+//     at process.processTicksAndRejections (node:internal/process/task_queues:77:11)
