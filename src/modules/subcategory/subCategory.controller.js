@@ -46,6 +46,7 @@ router
   .patch(
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
+    uploadSingleImage("image"),
     subCategoryValidationSchema.updateSubCategory,
     validationMiddleware,
     subCategoryService.updateSubCategory
