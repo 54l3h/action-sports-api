@@ -8,7 +8,7 @@ import cloud from "../config/cloudinary.js";
 export const deleteOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
-      
+
     const document = await Model.findByIdAndDelete(id); // no { new: true } needed
 
     if (!document) {
@@ -22,7 +22,6 @@ export const deleteOne = (Model) => {
     });
   });
 };
-
 export const updateOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -30,58 +29,83 @@ export const updateOne = (Model) => {
     const file = req.file;
     const updatedData = {};
 
+    // 1. Fetch the existing document to check for image deletion later
+    const currentDocument = await Model.findById(id);
+
+    if (!currentDocument) {
+      return next(new AppError(`${Model.modelName} not found`, 404));
+    }
+
+    // 2. Prepare data for update (name and description)
     if (name) {
       updatedData.name = name;
       updatedData.slug = slugify(name);
     }
     if (description) updatedData.description = description;
 
-    // Start ----------------------
-    // Build data URI
-    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
-      "base64"
-    )}`;
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const publicId = `${file.fieldname}-${uniqueSuffix}`;
-
-    // Upload to Cloudinary
     let uploadResult;
-    try {
-      uploadResult = await cloud.uploader.upload(dataUri, {
-        folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
-          Model.modelName
-        }`,
-        public_id: publicId,
-        resource_type: "image",
-        overwrite: false,
-      });
-    } catch (err) {
-      // Cloudinary errors (network, auth, etc.)
-      return next(err);
-    }
 
-    const { secure_url, public_id } = uploadResult;
+    // 3. Handle file upload (only if a new file is present)
+    if (file) {
+      // Build data URI
+      const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
+        "base64"
+      )}`;
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      const publicId = `${file.fieldname}-${uniqueSuffix}`;
 
-    if (secure_url && public_id) updatedData.image = { secure_url, public_id };
-
-    // Check duplicate name in DB — if duplicate, remove cloud image to avoid orphan
-    const existing = await Model.findOne({ name });
-    if (existing) {
+      // Upload new image to Cloudinary
       try {
-        await cloud.uploader.destroy(public_id);
-      } catch (delErr) {
-        console.warn("Failed to delete duplicate upload:", delErr);
+        uploadResult = await cloud.uploader.upload(dataUri, {
+          folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
+            Model.modelName
+          }`,
+          public_id: publicId,
+          resource_type: "image",
+          overwrite: false,
+        });
+      } catch (err) {
+        return next(err); // Cloudinary errors
       }
-      return next(new AppError(`${Model.modelName} already exists`, 409));
-    }
 
-    // End ----------------------
+      const { secure_url, public_id } = uploadResult;
 
+      if (secure_url && public_id)
+        updatedData.image = { secure_url, public_id };
+
+      // 4. Check for duplicate name (FIXED LOGIC)
+      // Check if another document with this name exists (excluding the current one)
+      const existing = await Model.findOne({ name, _id: { $ne: id } });
+
+      if (existing) {
+        // If duplicate name found, destroy the newly uploaded image to prevent orphan
+        try {
+          await cloud.uploader.destroy(public_id);
+        } catch (delErr) {
+          console.warn("Failed to delete duplicate upload:", delErr);
+        }
+        return next(new AppError(`${Model.modelName} already exists`, 409));
+      }
+
+      // 5. Delete the OLD image from Cloudinary (PREVENTS ORPHANS)
+      const oldPublicId = currentDocument.image
+        ? currentDocument.image.public_id
+        : null;
+      if (oldPublicId) {
+        try {
+          await cloud.uploader.destroy(oldPublicId);
+        } catch (delErr) {
+          console.warn(`Failed to delete old image ${oldPublicId}:`, delErr);
+        }
+      }
+    } // End of if (file) block
     const document = await Model.findByIdAndUpdate(id, updatedData, {
       new: true,
+      runValidators: true,
     });
+
     if (!document) {
-      throw new AppError(`${Model.modelName} not found`, 404);
+      return next(new AppError(`${Model.modelName} not found`, 404));
     }
 
     return res.status(200).json({
