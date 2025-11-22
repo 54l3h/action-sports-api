@@ -1,11 +1,13 @@
 import asyncHandler from "express-async-handler";
-import { UserRoles } from "../../models/user.model.js";
+import UserModel, { UserRoles } from "../../models/user.model.js";
 import Cart from "../../models/cart.model.js";
 import Product from "../../models/product.model.js";
 import Order, { ORDER_DELIVERY_STATUS } from "../../models/order.model.js";
+import ShippingZones from "../../models/shippingZones.model.js";
 import AppError from "../../utils/AppError.js";
 import Stripe from "stripe";
 import axios from "axios";
+import { emailEvent } from "../../utils/events/email.event.js";
 
 /**
  * @description Create cash order
@@ -13,20 +15,31 @@ import axios from "axios";
  * @access User
  */
 export const createCashOrder = asyncHandler(async (req, res, next) => {
-  // app settings
-  const taxPrice = 0;
-  const shippingPrice = 0;
-
-  const { cartId } = req.params;
   // After creating the order => decrement the product quantity, increase product sold
 
   // Get cart depend on cartId
 
   const userId = req.user._id;
 
+  const shippingZoneId = req.body.shippingAddress.city;
+  console.log({ shippingZoneId });
+
+  const shippingZone = await ShippingZones.findById(shippingZoneId);
+  console.log({ shippingZone });
+
+  const shippingPrice = shippingZone.shippingRate;
+
+  const taxPrice = 0;
+
   // Get cart for logged user
-  let cart = await Cart.findById(cartId);
+
+  const cart = await Cart.findOne({ userId: req.user._id });
+
   if (!cart) {
+    throw new AppError("Your cart is already empty", 409);
+  }
+
+  if (!cart || cart.length === 0) {
     throw new AppError("Your cart is already empty", 409);
   }
 
@@ -35,19 +48,25 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
   const totalOrderPrice = cartPrice + taxPrice + shippingPrice;
 
   // Create order with default payment method (cash)
-  const order = await Order.create({
+  const createdOrder = await Order.create({
     userId,
     cartItems: cart.items,
+    shippingPrice,
+    subTotalPrice: cartPrice,
     totalOrderPrice,
     shippingAddress: req.body.shippingAddress,
   });
 
-  if (!order) {
+  if (!createdOrder) {
     throw new AppError(
       "An error occured while trying to create your order, please try again later",
       409
     );
   }
+
+  const order = await Order.findById(createdOrder._id);
+
+  orderEmitter(order);
 
   await clearCart(cart);
 
@@ -57,6 +76,7 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
     data: order,
   });
 });
+
 /**
  * @description Get all orders (with filtering & pagination)
  * @route GET /api/orders
@@ -351,8 +371,14 @@ const clearCart = async (cart) => {
     },
   }));
 
-  await Product.bulkWrite(bulkOptions, {});
-  await Cart.findByIdAndDelete(cart._id);
+  await Product.bulkWrite(bulkOptions);
+
+  // Clear the cart but keep the same ID
+  cart.items = [];
+  cart.totalPrice = 0;
+  cart.totalItems = 0;
+
+  await cart.save();
 };
 
 // export const webhookCheckout = asyncHandler(async (req, res, next) => {
@@ -418,13 +444,22 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       callback: process.env.PAYTABS_CALLBACK_URL,
     });
 
+    // const userData = await UserModel.findById(userId);
+    // const shippingZoneId = userData.shippingAddress.city;
+    const shippingPrice = await ShippingZones.findById(
+      req.user.shippingAddress
+    );
+
+    const cart_amount = cart.totalPrice + shippingPrice;
+
     const payload = {
       profile_id: process.env.PAYTABS_PROFILE_ID, // replace with your profile ID
       tran_type: "sale",
       tran_class: "ecom",
       cart_id: cart._id, // unique order reference
       cart_description: cartDescription,
-      cart_currency: "EGP", // change currency if needed
+      cart_currency: "SAR", // change currency if needed
+      // cart_amount: cart.totalPrice,
       cart_amount: cart.totalPrice,
       callback: process.env.PAYTABS_CALLBACK_URL, // your server-side callback URL
       return: "https://yourdomain.com/yourpage", // URL user will return to
@@ -432,6 +467,7 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
         name: req.user.name,
         email: req.user.email,
         phone: req.user.phone,
+        shippingAddress: req.user.shippingAddress,
       },
     };
 
@@ -540,6 +576,8 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
         },
       });
 
+      orderEmitter(order);
+
       console.log("✅ Order created successfully:", order._id);
 
       // Clear the cart and update product quantities
@@ -571,6 +609,44 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   }
 });
 
+export const orderEmitter = async (order) => {
+  console.log({ order });
+  console.log({ city: order.shippingAddress?.city?.nameAr });
+  console.log({ items: order.cartItems[0]?.productId });
+
+  // Format date in Saudi Arabia timezone
+  const saudiDate = new Date(order.createdAt).toLocaleDateString("ar-SA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  emailEvent.emit("orderInvoice", {
+    orderId: order._id.toString(),
+    customerName: order.userId?.name || "غير محدد",
+    customerEmail: order.userId?.email || "",
+    customerPhone: order.userId?.phone || "",
+    orderDate: saudiDate, // Use the formatted Saudi date here
+    paymentMethod:
+      order.paymentMethod === "cash" ? "الدفع عند الاستلام" : "بطاقة ائتمان",
+    city: order.shippingAddress?.city?.nameAr || "غير محدد",
+    address: order.shippingAddress?.details || "غير محدد",
+    phone: order.shippingAddress?.phone || order.userId?.phone || "",
+    items: order.cartItems.map((item) => ({
+      name: item.productId?.name || "منتج غير معروف",
+      quantity: item.qty || 1,
+      unitPrice: (item.unitPrice || 0).toFixed(2),
+      total: ((item.unitPrice || 0) * (item.qty || 1)).toFixed(2),
+    })),
+    subtotal: (order.subTotalPrice || 0).toFixed(2),
+    shipping: (order.shippingPrice || 0).toFixed(2),
+    grandTotal: (order.totalOrderPrice || 0).toFixed(2),
+  });
+};
 // POST /api/orders/pay-with-paytabs 200 763.423 ms - 120
 // ============================================================
 // 🔔 PAYTABS IPN RECEIVED at 2025-11-16T06:07:46.849Z

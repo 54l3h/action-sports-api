@@ -13,6 +13,8 @@ import cartController from "./modules/cart/cart.controller.js";
 import orderController from "./modules/order/order.controller.js";
 import messageController from "./modules/message/message.controller.js";
 import paymentSettingController from "./modules/payment-setting/paymentSetting.controller.js";
+import shippingZoneController from "./modules/shipping-zone/shippingZone.controller.js";
+import bannerController from "./modules/banner/banner.controller.js";
 import errorHandlingMiddleware from "./middlewares/errorHandling.middleware.js";
 import AppError from "./utils/AppError.js";
 import cors from "cors";
@@ -54,6 +56,8 @@ app.use("/api/cart", cartController);
 app.use("/api/orders", orderController);
 app.use("/api/messages", messageController);
 app.use("/api/payment-settings", paymentSettingController);
+app.use("/api/shipping-zones", shippingZoneController);
+app.use("/api/banners", bannerController);
 
 // Handle undefined routes
 app.use((req, res, next) => {

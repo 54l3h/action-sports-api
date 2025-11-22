@@ -42,7 +42,7 @@ router.get(
 
 // Create cash order
 router.post(
-  "/:cartId",
+  "/",
   authorizationMiddleware(UserRoles.USER),
   orderService.createCashOrder
 );

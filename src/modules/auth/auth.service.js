@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { emailEvent } from "../../utils/events/email.event.js";
 
 export const signup = asyncHandler(async (req, res, next) => {
-  const { name, email, password, passwordConfirm } = req.body;
+  const { name, email, phone, password, passwordConfirm } = req.body;
 
   const isExist = await User.findOne({ email });
 
@@ -18,7 +18,13 @@ export const signup = asyncHandler(async (req, res, next) => {
     throw new AppError("Passwords not match", 409);
   }
 
-  const user = await User.create({ name, email, password, passwordConfirm });
+  const user = await User.create({
+    name,
+    email,
+    phone,
+    password,
+    passwordConfirm,
+  });
 
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN,

@@ -28,10 +28,16 @@ const orderSchema = new Schema(
     totalOrderPrice: {
       type: Number,
     },
+    subTotalPrice: {
+      type: Number,
+    },
     shippingAddress: {
       details: String,
       phone: String,
-      city: String,
+      city: {
+        type: Types.ObjectId,
+        ref: "ShippingZone",
+      },
       postalCode: String,
     },
     cartDescription: String,
@@ -69,13 +75,20 @@ const orderSchema = new Schema(
 );
 
 orderSchema.pre(/^find/, function (next) {
-  this.populate({
-    path: "userId",
-    select: "name email",
-  }).populate({
-    path: "cartItems.productId",
-    select: "name price images",
-  });
+  this.populate([
+    {
+      path: "userId",
+      select: "name email phone",
+    },
+    {
+      path: "cartItems.productId",
+      select: "name",
+    },
+    {
+      path: "shippingAddress.city",
+      select: "nameAr nameEn",
+    },
+  ]);
   next();
 });
 

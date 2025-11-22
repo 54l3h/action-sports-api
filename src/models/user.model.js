@@ -16,7 +16,10 @@ const addressSchema = new Schema(
     },
     details: String,
     phone: String,
-    city: String,
+    city: {
+      type: Types.ObjectId,
+      ref: "ShippingZone",
+    },
     postalCode: String,
   },
   { _id: true }
@@ -61,6 +64,7 @@ const userSchema = new Schema(
     passwordResetCodeExpiresAt: Date,
     passwordResetCodeVerified: Boolean,
     addresses: [addressSchema],
+    shippingAddress: addressSchema,
   },
   { timestamps: true }
 );

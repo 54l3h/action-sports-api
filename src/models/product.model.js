@@ -38,7 +38,6 @@ const productSchema = new Schema(
       maxLength: [700, "Product description is too long"],
       trim: true,
     },
-
     quantity: {
       type: Number,
       required: [true, "Product quantity is required"],
