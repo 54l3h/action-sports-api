@@ -5,7 +5,7 @@ import cloud from "../../config/cloudinary.js";
 
 // Add new banner
 export const addBanner = asyncHandler(async (req, res) => {
-  const { link, isActive } = req.body;
+  const { title, description } = req.body;
 
   if (!req.file) {
     throw new AppError("Image is required", 400);
@@ -47,8 +47,8 @@ export const addBanner = asyncHandler(async (req, res) => {
       secure_url,
       public_id,
     },
-    link,
-    isActive,
+    title,
+    description,
   });
 
   res.status(201).json({
@@ -61,7 +61,7 @@ export const addBanner = asyncHandler(async (req, res) => {
 // Update banner
 export const updateBanner = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { link, isActive } = req.body;
+  const { description, title } = req.body;
 
   const banner = await Banner.findById(id);
   if (!banner) throw new AppError("Banner not found", 404);
@@ -112,8 +112,8 @@ export const updateBanner = asyncHandler(async (req, res) => {
   }
 
   // Update other fields
-  if (link !== undefined) banner.link = link;
-  if (isActive !== undefined) banner.isActive = isActive;
+  if (title !== undefined) banner.title = title;
+  if (description !== undefined) banner.description = description;
 
   await banner.save();
 
