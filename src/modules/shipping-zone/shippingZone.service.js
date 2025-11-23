@@ -29,13 +29,14 @@ export const getShippingZoneById = asyncHandler(async (req, res, next) => {
 
 export const updateShippingZone = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { zoneName, shippingRate } = req.body;
+  const { nameEn, zoneName, shippingRate } = req.body;
 
   const zone = await ShippingZones.findById(id);
   if (!zone) {
     throw new AppError("Shipping zone not found", 404);
   }
 
+  // Validate unique zone name
   if (zoneName && zoneName !== zone.zoneName) {
     const isExist = await ShippingZones.findOne({ zoneName });
     if (isExist) {
@@ -44,6 +45,13 @@ export const updateShippingZone = asyncHandler(async (req, res, next) => {
     zone.zoneName = zoneName;
   }
 
+  // Update nameEn + key
+  if (nameEn && nameEn !== zone.nameEn) {
+    zone.nameEn = nameEn;
+    zone.key = generateKey(nameEn);
+  }
+
+  // Update shipping rate
   if (shippingRate !== undefined) {
     zone.shippingRate = shippingRate;
   }
@@ -56,6 +64,7 @@ export const updateShippingZone = asyncHandler(async (req, res, next) => {
     data: zone,
   });
 });
+
 
 export const deleteShippingZone = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
@@ -72,7 +81,7 @@ export const deleteShippingZone = asyncHandler(async (req, res, next) => {
 });
 
 export const addShippingZone = asyncHandler(async (req, res, next) => {
-  const { zoneName, shippingRate } = req.body;
+  const { zoneName, nameEn, shippingRate } = req.body;
 
   if (!zoneName) {
     throw new AppError("Zone name is required", 400);
@@ -83,7 +92,14 @@ export const addShippingZone = asyncHandler(async (req, res, next) => {
     throw new AppError("This zone already exists", 400);
   }
 
-  const zone = await ShippingZones.create({ zoneName, shippingRate });
+  const key = generateKey(nameEn);
+
+  const zone = await ShippingZones.create({
+    zoneName,
+    nameEn,
+    key,
+    shippingRate,
+  });
 
   return res.status(201).json({
     success: true,
@@ -91,3 +107,9 @@ export const addShippingZone = asyncHandler(async (req, res, next) => {
     data: zone,
   });
 });
+
+const generateKey = (nameEn) => {
+  if (!nameEn) return undefined;
+  const firstWord = nameEn.trim().split(" ")[0];
+  return firstWord.toLowerCase();
+};

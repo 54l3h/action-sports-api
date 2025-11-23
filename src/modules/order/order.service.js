@@ -332,37 +332,6 @@ export const getCheckoutSession = asyncHandler(async (req, res, next) => {
   });
 });
 
-const createOrder = async (session) => {
-  const { userId, cartId, shippingAddress } = session.metadata;
-  const amount_total = session.amount_total;
-
-  const cart = await Cart.findById(cartId);
-
-  if (!cart) {
-    throw new AppError(`Cart not found: ${cartId}`, 404);
-  }
-
-  if (!cart.items || cart.items.length === 0) {
-    throw new AppError(`Cart is empty: ${cartId}`, 404);
-  }
-
-  const order = await Order.create({
-    userId,
-    cartItems: cart.items,
-    paymentMethod: "card",
-    totalOrderPrice: parseFloat(amount_total / 100),
-    isPaid: true,
-    paidAt: Date.now(),
-    shippingAddress: JSON.parse(shippingAddress),
-  });
-
-  if (!order) {
-    throw new AppError("Error creating order", 409);
-  }
-
-  return { order, cart };
-};
-
 const clearCart = async (cart) => {
   const bulkOptions = cart.items.map((item) => ({
     updateOne: {
@@ -381,6 +350,7 @@ const clearCart = async (cart) => {
   await cart.save();
 };
 
+// Stripe
 // export const webhookCheckout = asyncHandler(async (req, res, next) => {
 //   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 //   const endpointSecret = process.env.ENDPOINT_SECRET;
@@ -420,83 +390,117 @@ const clearCart = async (cart) => {
  */
 export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   try {
-    // Extract the user
+    // Get user's cart
     const cart = await Cart.findOne({ userId: req.user._id }).populate(
       "items.productId",
       "name"
     );
-    if (!cart || !cart.items.length > 0) {
+
+    if (!cart || cart.items.length === 0) {
       throw new AppError("Your cart is already empty", 409);
     }
-    // Extract order info from the request body or define them here
 
-    // const cartItems = await cart.populate({ path: "items" });
+    // Build cart description
     const cartItems = cart.items;
-    console.log(cartItems);
     const cartDescriptionArray = cartItems.map((item) => {
       return `${item.productId.name} * ${item.qty}`;
     });
-
     const cartDescription = cartDescriptionArray.join(", ");
 
-    console.log({
-      profile_id: process.env.PAYTABS_PROFILE_ID,
-      callback: process.env.PAYTABS_CALLBACK_URL,
+    // ✅ FIXED: Get shipping address from request body (sent by frontend)
+    const shippingAddress = req.body.shippingAddress;
+
+    if (!shippingAddress || !shippingAddress.city) {
+      throw new AppError(
+        "Please provide shipping address in request body",
+        400
+      );
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(req.user._id, {
+      shippingAddress,
     });
 
-    // const userData = await UserModel.findById(userId);
-    // const shippingZoneId = userData.shippingAddress.city;
-    const shippingPrice = await ShippingZones.findById(
-      req.user.shippingAddress
-    );
+    console.log("Shipping Address from request:", shippingAddress);
 
+    // Get shipping zone details
+    const shippingZone = await ShippingZones.findById(shippingAddress.city);
+
+    if (!shippingZone) {
+      throw new AppError("Invalid shipping city", 400);
+    }
+
+    const shippingPrice = shippingZone.shippingRate || 0;
     const cart_amount = cart.totalPrice + shippingPrice;
 
+    // Prepare PayTabs payload with proper billing address
     const payload = {
-      profile_id: process.env.PAYTABS_PROFILE_ID, // replace with your profile ID
+      profile_id: process.env.PAYTABS_PROFILE_ID,
       tran_type: "sale",
       tran_class: "ecom",
-      cart_id: cart._id, // unique order reference
+      cart_id: cart._id.toString(),
       cart_description: cartDescription,
-      cart_currency: "SAR", // change currency if needed
-      // cart_amount: cart.totalPrice,
-      cart_amount: cart.totalPrice,
-      callback: process.env.PAYTABS_CALLBACK_URL, // your server-side callback URL
-      return: "https://yourdomain.com/yourpage", // URL user will return to
+      cart_currency: "EGP",
+      cart_amount: cart_amount,
+      callback: process.env.PAYTABS_CALLBACK_URL,
+      return:
+        process.env.PAYTABS_RETURN_URL ||
+        "https://yourdomain.com/payment/success",
+
+      // Proper customer details with billing address
       customer_details: {
         name: req.user.name,
         email: req.user.email,
-        phone: req.user.phone,
-        shippingAddress: req.user.shippingAddress,
+        phone: req.user.phone || shippingAddress.phone,
+        street1: shippingAddress.details || "Not provided",
+        city: shippingZone.nameEn || shippingZone.nameAr,
+        state: shippingZone.nameEn || shippingZone.nameAr,
+        country: "EG",
+        zip: shippingAddress.postalCode || "00000",
       },
     };
 
+    console.log("PayTabs Payload:", JSON.stringify(payload, null, 2));
+
+    // Store shipping address temporarily in the cart for webhook use
+    cart.tempShippingAddress = shippingAddress;
+    await cart.save();
+
+    console.log("Shipping address saved to cart");
+
+    // Make request to PayTabs
     const response = await axios.post(
       "https://secure-egypt.paytabs.com/payment/request",
       payload,
       {
         headers: {
-          Authorization: process.env.SERVER_KEY, // replace with your server key
+          Authorization: process.env.PAYTABS_SERVER_KEY,
           "Content-Type": "application/json",
         },
       }
     );
 
     const data = response.data;
+    console.log("PayTabs Response:", JSON.stringify(data, null, 2));
 
-    // Handle redirection or immediate transaction results
     if (data.redirect_url) {
-      // Customer needs to be redirected for 3D Secure, etc.
-      return res.json({ redirectUrl: data.redirect_url });
+      return res.json({
+        success: true,
+        redirectUrl: data.redirect_url,
+        tran_ref: data.tran_ref,
+      });
     } else {
-      // Transaction processed without redirection
-      return res.json(data);
+      return res.json({
+        success: true,
+        data,
+      });
     }
   } catch (error) {
-    console.error(error.response?.data || error.message);
+    console.error("PayTabs Error:", error.response?.data || error.message);
     return res.status(500).json({
+      success: false,
       message: "Payment request failed",
-      error: error.response?.data || error.message,
+      error: error.message || error.response?.data,
     });
   }
 });
@@ -534,11 +538,9 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
     console.log("  - Code:", responseCode);
     console.log("  - Message:", responseMessage);
 
-    // Check if payment is approved (status "A")
     if (responseStatus === "A") {
       console.log("✅ Payment APPROVED for cart:", cart_id);
 
-      // Find the cart
       const cart = await Cart.findById(cart_id);
 
       if (!cart) {
@@ -557,31 +559,51 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
         });
       }
 
-      // Create the order - FIXED: Use "card" not "paytabs"
-      const order = await Order.create({
+      const user = await UserModel.findById(cart.userId);
+
+      if (!user) {
+        console.log("❌ User not found:", cart.userId);
+        return res.status(200).json({
+          received: true,
+          error: "User not found",
+        });
+      }
+
+      // Use temp shipping address from cart
+
+      const shippingAddress = user.shippingAddress;
+
+      // Get shipping zone for price calculation
+      const shippingZone = await ShippingZones.findById(shippingAddress?.city);
+      const shippingPrice = shippingZone?.shippingRate || 0;
+      const subTotalPrice = cart.totalPrice;
+      const totalOrderPrice = subTotalPrice + shippingPrice;
+
+      // Create the order
+      const createdOrder = await Order.create({
         userId: cart.userId,
         cartItems: cart.items,
-        paymentMethod: "card", // ✅ FIXED: PayTabs is a card payment
-        totalOrderPrice: parseFloat(cart_amount),
+        paymentMethod: "card",
+        subTotalPrice: subTotalPrice,
+        shippingPrice: shippingPrice,
+        totalOrderPrice: totalOrderPrice,
         isPaid: true,
         paidAt: Date.now(),
         transactionRef: tran_ref,
         cartDescription: cart_description,
         shippingAddress: {
-          name: shipping_details?.name || customer_details?.name,
-          details: shipping_details?.street1 || customer_details?.street1, // Use "details" per schema
-          city: shipping_details?.city || customer_details?.city,
-          phone: customer_details?.phone || "",
-          postalCode: shipping_details?.zip || customer_details?.zip || "", // Use "postalCode" per schema
+          details: shippingAddress?.details || "",
+          city: shippingAddress?.city || null,
+          phone: shippingAddress?.phone || user.phone || "",
+          postalCode: shippingAddress?.postalCode || "",
         },
       });
 
+      console.log("✅ Order created successfully:", createdOrder._id);
+
+      const order = await Order.findById(createdOrder._id);
       orderEmitter(order);
 
-      console.log("✅ Order created successfully:", order._id);
-
-      // Clear the cart and update product quantities
-      // This function already decrements inventory: quantity: -item.qty, sold: item.qty
       await clearCart(cart);
 
       console.log("✅ Cart cleared and inventory updated");
@@ -592,7 +614,6 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
 
     console.log("=".repeat(60));
 
-    // IMPORTANT: Always respond with 200
     return res.status(200).json({
       received: true,
       timestamp: timestamp,
@@ -601,13 +622,43 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   } catch (error) {
     console.error("💥 Webhook Error:", error.message);
     console.error("Stack:", error.stack);
-    // Still return 200 to prevent retries
     return res.status(200).json({
       received: true,
       error: error.message,
     });
   }
 });
+
+const createOrder = async (session) => {
+  const { userId, cartId, shippingAddress } = session.metadata;
+  const amount_total = session.amount_total;
+
+  const cart = await Cart.findById(cartId);
+
+  if (!cart) {
+    throw new AppError(`Cart not found: ${cartId}`, 404);
+  }
+
+  if (!cart.items || cart.items.length === 0) {
+    throw new AppError(`Cart is empty: ${cartId}`, 404);
+  }
+
+  const order = await Order.create({
+    userId,
+    cartItems: cart.items,
+    paymentMethod: "card",
+    totalOrderPrice: parseFloat(amount_total / 100),
+    isPaid: true,
+    paidAt: Date.now(),
+    shippingAddress: JSON.parse(shippingAddress),
+  });
+
+  if (!order) {
+    throw new AppError("Error creating order", 409);
+  }
+
+  return { order, cart };
+};
 
 export const orderEmitter = async (order) => {
   console.log({ order });
@@ -647,6 +698,7 @@ export const orderEmitter = async (order) => {
     grandTotal: (order.totalOrderPrice || 0).toFixed(2),
   });
 };
+
 // POST /api/orders/pay-with-paytabs 200 763.423 ms - 120
 // ============================================================
 // 🔔 PAYTABS IPN RECEIVED at 2025-11-16T06:07:46.849Z

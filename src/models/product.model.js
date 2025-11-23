@@ -62,6 +62,10 @@ const productSchema = new Schema(
       type: String,
       trim: true,
     },
+    installationPrice: {
+      type: Number,
+      default: 0,
+    },
     images: [
       {
         secure_url: { type: String, required: true, trim: true },
