@@ -2,7 +2,7 @@ import asyncHandler from "express-async-handler";
 import ShippingZones from "../../models/shippingZones.model.js";
 import AppError from "../../utils/AppError.js";
 
-export const getAllShippingZones = asyncHandler(async (req, res, next) => {
+export const getAllShippingZones = asyncHandler(async (req, res) => {
   const zones = await ShippingZones.find();
 
   return res.status(200).json({
@@ -16,9 +16,7 @@ export const getShippingZoneById = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
   const zone = await ShippingZones.findById(id);
-  if (!zone) {
-    throw new AppError("Shipping zone not found", 404);
-  }
+  if (!zone) throw new AppError("Shipping zone not found", 404);
 
   return res.status(200).json({
     success: true,
@@ -29,31 +27,35 @@ export const getShippingZoneById = asyncHandler(async (req, res, next) => {
 
 export const updateShippingZone = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { nameEn, zoneName, shippingRate } = req.body;
+  const { nameEn, nameAr, shippingRate, isInstallationAvailable } = req.body;
 
   const zone = await ShippingZones.findById(id);
-  if (!zone) {
-    throw new AppError("Shipping zone not found", 404);
-  }
+  if (!zone) throw new AppError("Shipping zone not found", 404);
 
-  // Validate unique zone name
-  if (zoneName && zoneName !== zone.zoneName) {
-    const isExist = await ShippingZones.findOne({ zoneName });
-    if (isExist) {
-      throw new AppError("This zone name already exists", 400);
-    }
-    zone.zoneName = zoneName;
-  }
-
-  // Update nameEn + key
+  // Update nameEn + key logic
   if (nameEn && nameEn !== zone.nameEn) {
+    const newKey = generateKey(nameEn);
+
+    const exists = await ShippingZones.findOne({
+      key: newKey,
+      _id: { $ne: id },
+    });
+
+    if (exists) throw new AppError("This zone already exists", 400);
+
     zone.nameEn = nameEn;
-    zone.key = generateKey(nameEn);
+    zone.key = newKey;
   }
 
-  // Update shipping rate
-  if (shippingRate !== undefined) {
-    zone.shippingRate = shippingRate;
+  // Arabic name
+  if (nameAr !== undefined) zone.nameAr = nameAr;
+
+  // Shipping rate
+  if (shippingRate !== undefined) zone.shippingRate = shippingRate;
+
+  // Boolean (installation availability)
+  if (isInstallationAvailable !== undefined) {
+    zone.isInstallationAvailable = isInstallationAvailable;
   }
 
   await zone.save();
@@ -65,14 +67,11 @@ export const updateShippingZone = asyncHandler(async (req, res, next) => {
   });
 });
 
-
 export const deleteShippingZone = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
   const zone = await ShippingZones.findByIdAndDelete(id);
-  if (!zone) {
-    throw new AppError("Shipping zone not found", 404);
-  }
+  if (!zone) throw new AppError("Shipping zone not found", 404);
 
   return res.status(200).json({
     success: true,
@@ -81,24 +80,21 @@ export const deleteShippingZone = asyncHandler(async (req, res, next) => {
 });
 
 export const addShippingZone = asyncHandler(async (req, res, next) => {
-  const { zoneName, nameEn, shippingRate } = req.body;
+  const { nameAr, nameEn, shippingRate, isInstallationAvailable } = req.body;
 
-  if (!zoneName) {
-    throw new AppError("Zone name is required", 400);
-  }
-
-  const isExist = await ShippingZones.findOne({ zoneName });
-  if (isExist) {
-    throw new AppError("This zone already exists", 400);
-  }
+  if (!nameEn) throw new AppError("English name is required", 400);
 
   const key = generateKey(nameEn);
 
+  const exists = await ShippingZones.findOne({ key });
+  if (exists) throw new AppError("This zone already exists", 400);
+
   const zone = await ShippingZones.create({
-    zoneName,
     nameEn,
+    nameAr,
     key,
     shippingRate,
+    isInstallationAvailable,
   });
 
   return res.status(201).json({
@@ -109,7 +105,5 @@ export const addShippingZone = asyncHandler(async (req, res, next) => {
 });
 
 const generateKey = (nameEn) => {
-  if (!nameEn) return undefined;
-  const firstWord = nameEn.trim().split(" ")[0];
-  return firstWord.toLowerCase();
+  return nameEn.trim().split(" ")[0].toLowerCase();
 };
