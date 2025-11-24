@@ -7,12 +7,11 @@ import { uploadSingleImage } from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
-router.use(authenticationMiddleware);
-
 // CRUD endpoints for banners
 router.get("/", bannerService.getAllBanners);
 router.get("/:id", bannerService.getBannerById);
 
+router.use(authenticationMiddleware);
 router.use(authorizationMiddleware(UserRoles.ADMIN));
 
 router.post("/", uploadSingleImage("image"), bannerService.addBanner);
