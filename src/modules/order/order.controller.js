@@ -27,11 +27,11 @@ router.post(
 );
 
 // Create checkout session
-router.post(
-  "/checkout-session/:cartId",
-  authorizationMiddleware(UserRoles.USER),
-  orderService.getCheckoutSession
-);
+// router.post(
+//   "/checkout-session/:cartId",
+//   authorizationMiddleware(UserRoles.USER),
+//   orderService.getCheckoutSession
+// );
 
 // Get all orders (admin only)
 router.get(

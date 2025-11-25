@@ -17,6 +17,10 @@ const cartSchema = new Schema(
           type: Number,
           required: true,
         },
+        installationPrice: {
+          type: Number,
+          default: 0,
+        },
       },
     ],
     totalPrice: {

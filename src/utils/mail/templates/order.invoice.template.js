@@ -10,6 +10,7 @@ const orderInvoiceTemplate = ({
   phone,
   items = [],
   subtotal,
+  totalInstallation,
   shipping,
   grandTotal,
 } = {}) => {
@@ -17,34 +18,50 @@ const orderInvoiceTemplate = ({
     .map(
       (item, index) => `
     <tr>
-      <td style="padding: 12px 16px; text-align: center; color: #223047; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">${
-        index + 1
-      }</td>
-      <td style="padding: 12px 16px; text-align: right; color: #223047; font-size: 15px; border-bottom: 1px solid #e5e7eb;">${
-        item.name
-      }</td>
-      <td style="padding: 12px 16px; text-align: center; color: #223047; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">${
-        item.quantity
-      }</td>
-      <td style="padding: 12px 16px; text-align: center; color: #223047; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">${
-        item.unitPrice
-      } ر.س</td>
-      <td style="padding: 12px 16px; text-align: center; color: #223047; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap;">${
-        item.total
-      } ر.س</td>
+      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-size: 14px; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${index + 1}</td>
+      <td style="padding: 14px 12px; text-align: center; color: #1e293b; font-size: 14px; font-weight: 500; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${item.name}</td>
+      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-size: 14px; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${item.quantity}</td>
+      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-size: 14px; white-space: nowrap; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${item.unitPrice} ر.س</td>
+      <td style="padding: 14px 8px; text-align: center; color: #dc2626; font-weight: 600; font-size: 14px; white-space: nowrap; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${item.installationPrice} ر.س</td>
+      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-weight: 600; font-size: 14px; white-space: nowrap; ${
+        index === items.length - 1
+          ? "border-bottom: none;"
+          : "border-bottom: 1px solid #f1f5f9;"
+      }">${item.total} ر.س</td>
     </tr>
   `
     )
     .join("");
 
   return `<!doctype html>
-<html lang="ar" dir="rtl">
+<html>
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>فاتورة طلب</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Order Invoice</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
         
         * { 
             box-sizing: border-box; 
@@ -53,45 +70,105 @@ const orderInvoiceTemplate = ({
         }
         
         body {
-            font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif;
-            background: #f7f8fb;
-            color: #223047;
-            direction: rtl;
+            font-family: 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
             padding: 0;
             margin: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        img {
+            border: 0;
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        table {
+            border-collapse: collapse;
+        }
+        
+        @media only screen and (max-width: 900px) {
+            .wrapper {
+                width: 100% !important;
+            }
+            
+            .content-padding {
+                padding: 25px 20px !important;
+            }
+            
+            .header-padding {
+                padding: 30px 20px !important;
+            }
+            
+            .table-scroll {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+            
+            .info-card {
+                padding: 0 6px !important;
+            }
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .main-title {
+                font-size: 24px !important;
+            }
+            
+            .section-title {
+                font-size: 15px !important;
+            }
+            
+            .text-size {
+                font-size: 13px !important;
+            }
+            
+            table td {
+                font-size: 12px !important;
+            }
+            
+            .info-card {
+                padding: 0 4px !important;
+            }
+            
+            .info-card table {
+                font-size: 12px !important;
+            }
+            
+            .info-card .section-title {
+                font-size: 13px !important;
+            }
+            
+            .info-card .text-size {
+                font-size: 11px !important;
+            }
         }
     </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f7f8fb; direction: rtl;">
-    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f7f8fb; padding: 40px 20px;" dir="rtl">
+<body style="margin: 0; padding: 0; background-color: #f8fafc;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background-color: #f8fafc; padding: 20px 10px;">
         <tr>
             <td align="center">
-                <!-- Main Invoice Container -->
-                <table width="700" cellpadding="0" cellspacing="0" border="0" style="max-width: 700px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 18px 45px rgba(34,48,71,0.08); border: 1px solid #f0f1f5; overflow: hidden;" dir="rtl">
+                <table width="950" cellpadding="0" cellspacing="0" border="0" role="presentation" class="wrapper" style="max-width: 950px; width: 100%; background-color: #ffffff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin: 0 auto;">
                     
-                    <!-- Logo Section -->
+                    <!-- Header with Logo and Invoice Title -->
                     <tr>
-                        <td align="center" style="padding: 32px 40px 24px 40px; background: #ffffff;">
-                            <img src="cid:logo" alt="Action Sports" style="width: 140px; height: auto; display: block; margin: 0 auto;" />
-                        </td>
-                    </tr>
-                    
-                    <!-- Header with Title -->
-                    <tr>
-                        <td style="padding: 0 40px 32px 40px; border-bottom: 4px solid #f6f7fb;">
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" dir="rtl">
+                        <td class="header-padding" style="padding: 35px 40px; background: #ffffff; border-radius: 12px 12px 0 0; border-bottom: 3px solid #dc2626;">
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
                                 <tr>
-                                    <td style="text-align: center;">
-                                        <div style="font-size: 16px; color: #a0a7b1; margin-bottom: 8px;">
-                                            Action Sports
+                                    <td width="50%" style="vertical-align: middle;">
+                                        <img src="cid:logo" alt="Action Sports" width="120" style="width: 120px; max-width: 120px; height: auto; display: block;" />
+                                        <div style="font-size: 13px; color: #64748b; margin-top: 8px; line-height: 1.5;">
+                                            actionsportsatksa@gmail.com<br/>+966-555-000-111
                                         </div>
-                                        <div style="font-size: 13px; color: #a0a7b1; margin-bottom: 20px;">
-                                            actionsportsatksa@gmail.com | +966-555-000-111
-                                        </div>
-                                        <div style="font-size: 32px; font-weight: 700; color: #d32f2f; letter-spacing: 1px; margin-bottom: 8px;">
+                                    </td>
+                                    <td width="50%" align="right" style="vertical-align: middle;">
+                                        <div class="main-title" style="font-size: 28px; font-weight: 800; color: #dc2626; margin-bottom: 8px;">
                                             فاتورة طلب
                                         </div>
-                                        <div style="font-size: 15px; color: #a0a7b1;">
+                                        <div style="font-size: 14px; color: #64748b; background: #fef2f2; padding: 8px 16px; border-radius: 6px; display: inline-block; border: 1px solid #fecaca;">
                                             ${orderId}
                                         </div>
                                     </td>
@@ -100,171 +177,145 @@ const orderInvoiceTemplate = ({
                         </td>
                     </tr>
                     
-                    <!-- Body Content -->
+                    <!-- Main Content -->
                     <tr>
-                        <td style="padding: 32px 40px;">
+                        <td class="content-padding" style="padding: 35px 40px;">
                             
-                            <!-- Customer Info Card -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafbff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;">
+                            <!-- Info Cards Grid -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" class="info-grid" style="margin-bottom: 30px;">
                                 <tr>
-                                    <td style="font-size: 18px; font-weight: 600; color: #d32f2f; padding-bottom: 16px; text-align: right;">
-                                        معلومات العميل
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <!-- Customer Info -->
+                                    <td width="32%" class="info-card" style="vertical-align: top; padding-right: 12px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; height: 100%;">
                                             <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">الاسم</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${customerName}</td>
+                                                <td style="padding: 20px;">
+                                                    <div class="section-title" style="font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #fecaca;">
+                                                        معلومات العميل
+                                                    </div>
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">الاسم</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px;">${customerName}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">البريد الإلكتروني</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px; word-break: break-word;">${customerEmail}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">رقم الهاتف</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600;">${customerPhone}</div>
+                                                </td>
                                             </tr>
                                         </table>
                                     </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    
+                                    <!-- Order Details -->
+                                    <td width="32%" class="info-card" style="vertical-align: top; padding: 0 12px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; height: 100%;">
                                             <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">البريد الإلكتروني</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500; word-break: break-word;">${customerEmail}</td>
+                                                <td style="padding: 20px;">
+                                                    <div class="section-title" style="font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #fecaca;">
+                                                        تفاصيل الطلب
+                                                    </div>
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">رقم الطلب</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px;">${orderId}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">التاريخ</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px;">${orderDate}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">طريقة الدفع</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600;">${paymentMethod}</div>
+                                                </td>
                                             </tr>
                                         </table>
                                     </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    
+                                    <!-- Shipping Address -->
+                                    <td width="32%" class="info-card" style="vertical-align: top; padding-left: 12px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; height: 100%;">
                                             <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">رقم الهاتف</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${customerPhone}</td>
+                                                <td style="padding: 20px;">
+                                                    <div class="section-title" style="font-size: 16px; font-weight: 700; color: #dc2626; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #fecaca;">
+                                                        عنوان الشحن
+                                                    </div>
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">المدينة</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px;">${city}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">التفاصيل</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600; margin-bottom: 12px;">${address}</div>
+                                                    
+                                                    <div class="text-size" style="font-size: 13px; color: #64748b; margin-bottom: 4px;">الهاتف</div>
+                                                    <div class="text-size" style="font-size: 14px; color: #1e293b; font-weight: 600;">${phone}</div>
+                                                </td>
                                             </tr>
                                         </table>
                                     </td>
                                 </tr>
                             </table>
                             
-                            <!-- Order Details Card -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafbff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;">
-                                <tr>
-                                    <td style="font-size: 18px; font-weight: 600; color: #d32f2f; padding-bottom: 16px; text-align: right;">
-                                        تفاصيل الطلب
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">رقم الطلب</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${orderId}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">التاريخ</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${orderDate}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">طريقة الدفع</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${paymentMethod}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
-                            
-                            <!-- Shipping Address Card -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #fafbff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px 24px; margin-bottom: 28px;">
-                                <tr>
-                                    <td style="font-size: 18px; font-weight: 600; color: #d32f2f; padding-bottom: 16px; text-align: right;">
-                                        عنوان الشحن
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">المدينة</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${city}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">التفاصيل</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${address}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 8px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 15px; color: #a0a7b1; text-align: right; width: 35%; white-space: nowrap;">الهاتف</td>
-                                                <td style="font-size: 15px; color: #223047; text-align: left; font-weight: 500;">${phone}</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <!-- Products Section -->
+                            <div style="margin-bottom: 20px;">
+                                <div class="section-title" style="font-size: 18px; font-weight: 700; color: #dc2626; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #fecaca;">
+                                    المنتجات
+                                </div>
+                            </div>
                             
                             <!-- Products Table -->
-                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; margin-bottom: 24px;" dir="rtl">
-                                <thead>
-                                    <tr style="background: #fbeaec;">
-                                        <th style="padding: 14px 12px; text-align: center; color: #d32f2f; font-weight: 600; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; width: 8%;">#</th>
-                                        <th style="padding: 14px 16px; text-align: right; color: #d32f2f; font-weight: 600; font-size: 15px; border-bottom: 1px solid #e5e7eb; width: 40%;">المنتج</th>
-                                        <th style="padding: 14px 12px; text-align: center; color: #d32f2f; font-weight: 600; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; width: 13%;">الكمية</th>
-                                        <th style="padding: 14px 12px; text-align: center; color: #d32f2f; font-weight: 600; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; width: 20%;">سعر الوحدة</th>
-                                        <th style="padding: 14px 12px; text-align: center; color: #d32f2f; font-weight: 600; font-size: 15px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; width: 19%;">الإجمالي</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${itemsRows}
-                                </tbody>
-                            </table>
+                            <div class="table-scroll">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 25px; min-width: 650px;">
+                                    <thead>
+                                        <tr style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);">
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">#</th>
+                                            <th style="padding: 14px 12px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">المنتج</th>
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">الكمية</th>
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">سعر الوحدة</th>
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">التركيب</th>
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">المجموع</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody style="background: #ffffff;">
+                                        ${itemsRows}
+                                    </tbody>
+                                </table>
+                            </div>
                             
-                            <!-- Summary Card -->
-                            <table cellpadding="0" cellspacing="0" border="0" style="background: #fff9f9; border: 2px solid #f1c0c0; border-radius: 12px; padding: 24px 28px; width: 100%;" dir="rtl">
+                            <!-- Summary Section -->
+                            <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
                                 <tr>
-                                    <td style="padding: 10px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <td width="60%" style="vertical-align: top; padding-right: 20px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;">
                                             <tr>
-                                                <td style="font-size: 16px; color: #223047; text-align: right; white-space: nowrap;">إجمالي المنتجات</td>
-                                                <td style="font-size: 16px; color: #223047; text-align: left; font-weight: 600; white-space: nowrap;">${subtotal} ر.س</td>
+                                                <td>
+                                                    <div style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 12px;">ملاحظات:</div>
+                                                    <div style="font-size: 14px; color: #64748b; line-height: 1.6;">
+                                                        شكراً لثقتكم بنا. نتطلع لخدمتكم مرة أخرى
+                                                    </div>
+                                                </td>
                                             </tr>
                                         </table>
                                     </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 10px 0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                                    <td width="40%" style="vertical-align: top;">
+                                        <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation" style="background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); border: 2px solid #fecaca; border-radius: 10px;">
                                             <tr>
-                                                <td style="font-size: 16px; color: #223047; text-align: right; white-space: nowrap;">الشحن</td>
-                                                <td style="font-size: 16px; color: #223047; text-align: left; font-weight: 600; white-space: nowrap;">${shipping} ر.س</td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 16px 0 0 0; border-top: 2px dashed #f1c0c0;">
-                                        <table width="100%" cellpadding="0" cellspacing="0" border="0">
-                                            <tr>
-                                                <td style="font-size: 20px; color: #d32f2f; text-align: right; font-weight: 700; white-space: nowrap;">الإجمالي الكلي</td>
-                                                <td style="font-size: 20px; color: #d32f2f; text-align: left; font-weight: 700; white-space: nowrap;">${grandTotal} ر.س</td>
+                                                <td style="padding: 20px;">
+                                                    <table width="100%" cellpadding="0" cellspacing="0" border="0" role="presentation">
+                                                        <tr>
+                                                            <td style="font-size: 14px; color: #64748b; padding: 6px 0;">المجموع الفرعي</td>
+                                                            <td align="right" style="font-size: 15px; color: #1e293b; font-weight: 700; padding: 6px 0;">${subtotal} ر.س</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="font-size: 14px; color: #dc2626; padding: 6px 0;">رسوم التركيب</td>
+                                                            <td align="right" style="font-size: 15px; color: #dc2626; font-weight: 700; padding: 6px 0;">${totalInstallation} ر.س</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="font-size: 14px; color: #64748b; padding: 6px 0;">الشحن</td>
+                                                            <td align="right" style="font-size: 15px; color: #1e293b; font-weight: 700; padding: 6px 0;">${shipping} ر.س</td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td colspan="2" style="border-top: 2px dashed #fecaca; padding: 12px 0 8px;"></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="font-size: 16px; color: #dc2626; font-weight: 700; padding: 6px 0;">الإجمالي الكلي</td>
+                                                            <td align="right" style="font-size: 20px; color: #dc2626; font-weight: 800; padding: 6px 0;">${grandTotal} ر.س</td>
+                                                        </tr>
+                                                    </table>
+                                                </td>
                                             </tr>
                                         </table>
                                     </td>
@@ -276,9 +327,12 @@ const orderInvoiceTemplate = ({
                     
                     <!-- Footer -->
                     <tr>
-                        <td style="padding: 28px 40px 36px; border-top: 1px solid #f2f4f7; background: #fafbff; text-align: center;">
-                            <div style="font-size: 17px; font-weight: 700; color: #223047; padding-bottom: 10px;">
+                        <td align="center" style="padding: 25px 40px; border-top: 1px solid #e2e8f0; background: #f8fafc; border-radius: 0 0 12px 12px;">
+                            <div style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 6px;">
                                 شكراً لتعاملكم معنا
+                            </div>
+                            <div style="font-size: 14px; color: #64748b;">
+                                Thank you for your business
                             </div>
                         </td>
                     </tr>

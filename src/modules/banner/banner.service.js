@@ -3,7 +3,6 @@ import Banner from "../../models/banner.model.js";
 import AppError from "../../utils/AppError.js";
 import cloud from "../../config/cloudinary.js";
 
-// Add new banner
 export const addBanner = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
 
@@ -16,7 +15,6 @@ export const addBanner = asyncHandler(async (req, res) => {
   const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
   const publicId = `${file.fieldname}-${uniqueSuffix}`;
 
-  // Upload to Cloudinary using buffer stream
   let uploadResult;
   try {
     uploadResult = await new Promise((resolve, reject) => {
@@ -41,7 +39,6 @@ export const addBanner = asyncHandler(async (req, res) => {
 
   const { secure_url, public_id } = uploadResult;
 
-  // Create banner
   const banner = await Banner.create({
     image: {
       secure_url,
@@ -58,7 +55,6 @@ export const addBanner = asyncHandler(async (req, res) => {
   });
 });
 
-// Update banner
 export const updateBanner = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { description, title } = req.body;
@@ -66,11 +62,9 @@ export const updateBanner = asyncHandler(async (req, res) => {
   const banner = await Banner.findById(id);
   if (!banner) throw new AppError("Banner not found", 404);
 
-  // Handle image update if new file is uploaded
   if (req.file) {
     const file = req.file;
 
-    // Delete old image from Cloudinary
     if (banner.image?.public_id) {
       try {
         await cloud.uploader.destroy(banner.image.public_id);
@@ -79,7 +73,6 @@ export const updateBanner = asyncHandler(async (req, res) => {
       }
     }
 
-    // Upload new image
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const publicId = `${file.fieldname}-${uniqueSuffix}`;
 
@@ -111,7 +104,6 @@ export const updateBanner = asyncHandler(async (req, res) => {
     };
   }
 
-  // Update other fields
   if (title !== undefined) banner.title = title;
   if (description !== undefined) banner.description = description;
 
@@ -124,7 +116,6 @@ export const updateBanner = asyncHandler(async (req, res) => {
   });
 });
 
-// Delete banner
 export const deleteBanner = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const banner = await Banner.findByIdAndDelete(id);
@@ -136,7 +127,6 @@ export const deleteBanner = asyncHandler(async (req, res) => {
   });
 });
 
-// Get all banners
 export const getAllBanners = asyncHandler(async (req, res) => {
   const banners = await Banner.find();
   res.status(200).json({
@@ -146,7 +136,6 @@ export const getAllBanners = asyncHandler(async (req, res) => {
   });
 });
 
-// Get banner by ID
 export const getBannerById = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const banner = await Banner.findById(id);

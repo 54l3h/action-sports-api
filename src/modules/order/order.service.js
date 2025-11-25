@@ -5,56 +5,62 @@ import Product from "../../models/product.model.js";
 import Order, { ORDER_DELIVERY_STATUS } from "../../models/order.model.js";
 import ShippingZones from "../../models/shippingZones.model.js";
 import AppError from "../../utils/AppError.js";
-import Stripe from "stripe";
 import axios from "axios";
 import { emailEvent } from "../../utils/events/email.event.js";
 
 /**
  * @description Create cash order
- * @route POST /api/orders/:cartId
+ * @route POST /api/orders
  * @access User
  */
 export const createCashOrder = asyncHandler(async (req, res, next) => {
-  // After creating the order => decrement the product quantity, increase product sold
-
-  // Get cart depend on cartId
-
   const userId = req.user._id;
 
   const shippingZoneId = req.body.shippingAddress.city;
-  console.log({ shippingZoneId });
-
   const shippingZone = await ShippingZones.findById(shippingZoneId);
-  console.log({ shippingZone });
 
-  const shippingPrice = shippingZone.shippingRate;
+  if (!shippingZone) {
+    throw new AppError("Invalid shipping city.", 400);
+  }
 
   const taxPrice = 0;
 
-  // Get cart for logged user
-
   const cart = await Cart.findOne({ userId: req.user._id });
 
-  if (!cart) {
-    throw new AppError("Your cart is already empty", 409);
+  if (!cart || cart.items.length === 0) {
+    throw new AppError("Your cart is empty, cannot create order", 409);
   }
 
-  if (!cart || cart.length === 0) {
-    throw new AppError("Your cart is already empty", 409);
+  // Calculate total installation price from cart items
+  const totalInstallationPrice = cart.items.reduce((acc, item) => {
+    return acc + (item.installationPrice || 0);
+  }, 0);
+
+  // 1. Installation Check: Reject if installation is required but not supported
+  if (totalInstallationPrice > 0 && !shippingZone.isInstallationAvailable) {
+    throw new AppError(
+      "We do not support installation at your shipping address for the items selected. Please remove the installation option or change the shipping address.",
+      409
+    );
   }
 
-  // Get order price depend on cart price
-  const cartPrice = cart.totalPrice;
-  const totalOrderPrice = cartPrice + taxPrice + shippingPrice;
+  const shippingPrice = shippingZone.shippingRate || 0;
+
+  // cart.totalPrice already includes product prices and all installation prices (Subtotal)
+  const subTotalPrice = cart.totalPrice;
+  const totalOrderPrice = subTotalPrice + taxPrice + shippingPrice;
 
   // Create order with default payment method (cash)
   const createdOrder = await Order.create({
     userId,
     cartItems: cart.items,
     shippingPrice,
-    subTotalPrice: cartPrice,
+    subTotalPrice: subTotalPrice,
+    // ✅ NEW: Persist the total installation price
+    totalInstallationPrice,
     totalOrderPrice,
     shippingAddress: req.body.shippingAddress,
+    paymentMethod: "cash",
   });
 
   if (!createdOrder) {
@@ -115,7 +121,7 @@ export const getAllOrders = asyncHandler(async (req, res, next) => {
 
 /**
  * @description Get all order
- * @route POST /api/orders/:id
+ * @route GET /api/orders/:id
  * @access Admin/User
  */
 export const getSpecificOrder = asyncHandler(async (req, res, next) => {
@@ -142,7 +148,7 @@ export const getSpecificOrder = asyncHandler(async (req, res, next) => {
 
 /**
  * @description Get logged user orders
- * @route GET /api/orders
+ * @route GET /api/orders/user
  * @access User
  */
 export const getLoggedUserOrders = asyncHandler(async (req, res, next) => {
@@ -194,12 +200,12 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res, next) => {
 
 /**
  * @route PATCH /api/orders/:id/status/:status
+ * @access Admin
  */
 export const updateOrderDeliveryStatus = asyncHandler(
   async (req, res, next) => {
     const { id, status } = req.params;
 
-    // Validate status in lowercase
     if (!Object.values(ORDER_DELIVERY_STATUS).includes(status)) {
       throw new AppError("Invalid delivery status", 400);
     }
@@ -209,7 +215,6 @@ export const updateOrderDeliveryStatus = asyncHandler(
       throw new AppError("Order not found", 404);
     }
 
-    // Prevent updating after it's delivered
     if (order.isDelivered) {
       throw new AppError("Order has already been delivered", 400);
     }
@@ -279,59 +284,6 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
   });
 });
 
-/**
- * @description Get checkout session from stripe and send it as a response
- * @route POST /api/orders/checkout-session/:cartId
- * @access User
- */
-export const getCheckoutSession = asyncHandler(async (req, res, next) => {
-  // 1- Get cart via the cartId
-  const { cartId } = req.params;
-  const cart = await Cart.findById(cartId);
-
-  if (!cart) {
-    throw new AppError("Your cart is already empty", 409);
-  }
-
-  // 2- Get order price
-  const cartPrice = cart.totalPrice; // e.g., 29.99 (in dollars)
-  const quantity = cart.totalItems;
-
-  // 3- Create stripe checkout session
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-  const session = await stripe.checkout.sessions.create({
-    line_items: [
-      {
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: `Order for ${req.user.name}`,
-          },
-          unit_amount: Math.round(cartPrice * 100),
-        },
-        quantity: 1,
-      },
-    ],
-    mode: "payment",
-    success_url: `${req.protocol}://${req.host}/api/orders`,
-    cancel_url: `${req.protocol}://${req.host}/api/cart`,
-    customer_email: req.user.email,
-    client_reference_id: cartId.toString(),
-    metadata: {
-      cartId: cartId.toString(),
-      userId: req.user._id.toString(),
-      shippingAddress: JSON.stringify(req.body.shippingAddress),
-    },
-  });
-
-  // 4- Send session to response
-  return res.status(200).json({
-    success: true,
-    data: session,
-  });
-});
-
 const clearCart = async (cart) => {
   const bulkOptions = cart.items.map((item) => ({
     updateOne: {
@@ -350,44 +302,6 @@ const clearCart = async (cart) => {
   await cart.save();
 };
 
-// Stripe
-// export const webhookCheckout = asyncHandler(async (req, res, next) => {
-//   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-//   const endpointSecret = process.env.ENDPOINT_SECRET;
-//   const signature = req.headers["stripe-signature"];
-
-//   let event;
-
-//   try {
-//     event = stripe.webhooks.constructEvent(req.body, signature, endpointSecret);
-//   } catch (err) {
-//     console.error("Webhook signature verification failed:", err.message);
-//     return res.status(400).send(`Webhook Error: ${err.message}`);
-//   }
-
-//   // Handle the event
-//   if (event.type === "checkout.session.completed") {
-//     const session = event.data.object;
-
-//     // Create order
-//     const { order, cart } = await createOrder(session);
-
-//     await clearCart(cart);
-//   } else {
-//     console.log(`Unhandled event type: ${event.type}`);
-//   }
-
-//   return res.status(200).send({ received: true });
-// });
-
-/**
- * The user come with their token so you can check their token:
- * You can get the cartId
- * You can get the cart description
- * You can get the customer name
- * You can get the customer email
- * You can get the customer phone
- */
 export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   try {
     // Get user's cart
@@ -407,7 +321,6 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
     });
     const cartDescription = cartDescriptionArray.join(", ");
 
-    // ✅ FIXED: Get shipping address from request body (sent by frontend)
     const shippingAddress = req.body.shippingAddress;
 
     if (!shippingAddress || !shippingAddress.city) {
@@ -417,11 +330,9 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       );
     }
 
-    const updatedUser = await UserModel.findByIdAndUpdate(req.user._id, {
+    await UserModel.findByIdAndUpdate(req.user._id, {
       shippingAddress,
     });
-
-    console.log("Shipping Address from request:", shippingAddress);
 
     // Get shipping zone details
     const shippingZone = await ShippingZones.findById(shippingAddress.city);
@@ -431,7 +342,9 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
     }
 
     const shippingPrice = shippingZone.shippingRate || 0;
-    const cart_amount = cart.totalPrice + shippingPrice;
+    // cart.totalPrice already includes product prices and installation prices
+    const subTotalPrice = cart.totalPrice;
+    const cart_amount = subTotalPrice + shippingPrice;
 
     // Prepare PayTabs payload with proper billing address
     const payload = {
@@ -441,7 +354,7 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       cart_id: cart._id.toString(),
       cart_description: cartDescription,
       cart_currency: "EGP",
-      cart_amount: cart_amount,
+      cart_amount: cart_amount, // Total price including shipping and installation
       callback: process.env.PAYTABS_CALLBACK_URL,
       return:
         process.env.PAYTABS_RETURN_URL ||
@@ -460,14 +373,6 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       },
     };
 
-    console.log("PayTabs Payload:", JSON.stringify(payload, null, 2));
-
-    // Store shipping address temporarily in the cart for webhook use
-    cart.tempShippingAddress = shippingAddress;
-    await cart.save();
-
-    console.log("Shipping address saved to cart");
-
     // Make request to PayTabs
     const response = await axios.post(
       "https://secure-egypt.paytabs.com/payment/request",
@@ -481,7 +386,6 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
     );
 
     const data = response.data;
-    console.log("PayTabs Response:", JSON.stringify(data, null, 2));
 
     if (data.redirect_url) {
       return res.json({
@@ -509,73 +413,41 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   const timestamp = new Date().toISOString();
 
   try {
-    console.log("=".repeat(60));
-    console.log(`🔔 PAYTABS IPN RECEIVED at ${timestamp}`);
-    console.log("=".repeat(60));
-    console.log("Body:", JSON.stringify(req.body, null, 2));
-    console.log("=".repeat(60));
-
     const paymentData = req.body || req.query;
 
-    const {
-      tran_ref,
-      cart_id,
-      payment_result,
-      cart_amount,
-      customer_details,
-      shipping_details,
-      cart_description,
-    } = paymentData;
+    const { tran_ref, cart_id, payment_result, cart_description } = paymentData;
 
     const responseStatus = payment_result?.response_status;
-    const responseCode = payment_result?.response_code;
-    const responseMessage = payment_result?.response_message;
-
-    console.log("📊 Parsed Data:");
-    console.log("  - Transaction Ref:", tran_ref);
-    console.log("  - Cart ID:", cart_id);
-    console.log("  - Status:", responseStatus);
-    console.log("  - Code:", responseCode);
-    console.log("  - Message:", responseMessage);
 
     if (responseStatus === "A") {
-      console.log("✅ Payment APPROVED for cart:", cart_id);
-
       const cart = await Cart.findById(cart_id);
 
-      if (!cart) {
-        console.log("❌ Cart not found:", cart_id);
-        return res.status(200).json({
-          received: true,
-          error: "Cart not found",
-        });
-      }
-
-      if (!cart.items || cart.items.length === 0) {
-        console.log("❌ Cart is empty:", cart_id);
-        return res.status(200).json({
-          received: true,
-          error: "Cart is empty",
-        });
+      if (!cart || cart.items.length === 0) {
+        return res
+          .status(200)
+          .json({ received: true, error: "Cart not found or empty" });
       }
 
       const user = await UserModel.findById(cart.userId);
 
       if (!user) {
-        console.log("❌ User not found:", cart.userId);
-        return res.status(200).json({
-          received: true,
-          error: "User not found",
-        });
+        return res
+          .status(200)
+          .json({ received: true, error: "User not found" });
       }
-
-      // Use temp shipping address from cart
 
       const shippingAddress = user.shippingAddress;
 
       // Get shipping zone for price calculation
       const shippingZone = await ShippingZones.findById(shippingAddress?.city);
       const shippingPrice = shippingZone?.shippingRate || 0;
+
+      // Calculate total installation price from cart items
+      const totalInstallationPrice = cart.items.reduce((acc, item) => {
+        return acc + (item.installationPrice || 0);
+      }, 0);
+
+      // cart.totalPrice includes products and installation fees (Subtotal)
       const subTotalPrice = cart.totalPrice;
       const totalOrderPrice = subTotalPrice + shippingPrice;
 
@@ -586,6 +458,7 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
         paymentMethod: "card",
         subTotalPrice: subTotalPrice,
         shippingPrice: shippingPrice,
+        totalInstallationPrice,
         totalOrderPrice: totalOrderPrice,
         isPaid: true,
         paidAt: Date.now(),
@@ -599,20 +472,11 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
         },
       });
 
-      console.log("✅ Order created successfully:", createdOrder._id);
-
       const order = await Order.findById(createdOrder._id);
       orderEmitter(order);
 
       await clearCart(cart);
-
-      console.log("✅ Cart cleared and inventory updated");
-    } else {
-      console.log("❌ Payment NOT approved. Status:", responseStatus);
-      console.log("   Message:", responseMessage);
     }
-
-    console.log("=".repeat(60));
 
     return res.status(200).json({
       received: true,
@@ -621,7 +485,6 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
     });
   } catch (error) {
     console.error("💥 Webhook Error:", error.message);
-    console.error("Stack:", error.stack);
     return res.status(200).json({
       received: true,
       error: error.message,
@@ -629,43 +492,10 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
   }
 });
 
-const createOrder = async (session) => {
-  const { userId, cartId, shippingAddress } = session.metadata;
-  const amount_total = session.amount_total;
-
-  const cart = await Cart.findById(cartId);
-
-  if (!cart) {
-    throw new AppError(`Cart not found: ${cartId}`, 404);
-  }
-
-  if (!cart.items || cart.items.length === 0) {
-    throw new AppError(`Cart is empty: ${cartId}`, 404);
-  }
-
-  const order = await Order.create({
-    userId,
-    cartItems: cart.items,
-    paymentMethod: "card",
-    totalOrderPrice: parseFloat(amount_total / 100),
-    isPaid: true,
-    paidAt: Date.now(),
-    shippingAddress: JSON.parse(shippingAddress),
-  });
-
-  if (!order) {
-    throw new AppError("Error creating order", 409);
-  }
-
-  return { order, cart };
-};
-
 export const orderEmitter = async (order) => {
-  console.log({ order });
-  console.log({ city: order.shippingAddress?.city?.nameAr });
-  console.log({ items: order.cartItems[0]?.productId });
+  // Read the total installation price directly from the order document
+  const totalInstallationPrice = order.totalInstallationPrice || 0;
 
-  // Format date in Saudi Arabia timezone
   const saudiDate = new Date(order.createdAt).toLocaleDateString("ar-SA", {
     timeZone: "Asia/Riyadh",
     year: "numeric",
@@ -676,14 +506,25 @@ export const orderEmitter = async (order) => {
     hour12: true,
   });
 
+  let paymentMethodText;
+  if (order.paymentMethod === "cash") {
+    paymentMethodText = "الدفع عند الاستلام";
+  } else if (
+    order.paymentMethod === "card" ||
+    order.paymentMethod === "paytabs"
+  ) {
+    paymentMethodText = "بطاقة ائتمان / دفع إلكتروني";
+  } else {
+    paymentMethodText = "غير محدد";
+  }
+
   emailEvent.emit("orderInvoice", {
     orderId: order._id.toString(),
     customerName: order.userId?.name || "غير محدد",
     customerEmail: order.userId?.email || "",
     customerPhone: order.userId?.phone || "",
-    orderDate: saudiDate, // Use the formatted Saudi date here
-    paymentMethod:
-      order.paymentMethod === "cash" ? "الدفع عند الاستلام" : "بطاقة ائتمان",
+    orderDate: saudiDate,
+    paymentMethod: paymentMethodText,
     city: order.shippingAddress?.city?.nameAr || "غير محدد",
     address: order.shippingAddress?.details || "غير محدد",
     phone: order.shippingAddress?.phone || order.userId?.phone || "",
@@ -691,14 +532,23 @@ export const orderEmitter = async (order) => {
       name: item.productId?.name || "منتج غير معروف",
       quantity: item.qty || 1,
       unitPrice: (item.unitPrice || 0).toFixed(2),
-      total: ((item.unitPrice || 0) * (item.qty || 1)).toFixed(2),
+      // Individual installation price for line item display
+      installationPrice: (item.installationPrice || 0).toFixed(2),
+      // Total price for the line item (Products + Installation)
+      total: (
+        (item.unitPrice || 0) * (item.qty || 1) +
+        (item.installationPrice || 0)
+      ).toFixed(2),
     })),
+    // The total installation fee for the entire order
+    totalInstallation: totalInstallationPrice.toFixed(2),
     subtotal: (order.subTotalPrice || 0).toFixed(2),
     shipping: (order.shippingPrice || 0).toFixed(2),
     grandTotal: (order.totalOrderPrice || 0).toFixed(2),
   });
 };
 
+// paytabs response
 // POST /api/orders/pay-with-paytabs 200 763.423 ms - 120
 // ============================================================
 // 🔔 PAYTABS IPN RECEIVED at 2025-11-16T06:07:46.849Z

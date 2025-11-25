@@ -25,6 +25,10 @@ const orderSchema = new Schema(
       type: Number,
       default: 0,
     },
+    totalInstallationPrice: {
+      type: Number,
+      default: 0,
+    },
     totalOrderPrice: {
       type: Number,
     },

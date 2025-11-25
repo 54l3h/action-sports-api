@@ -30,7 +30,7 @@ const sendEmail = async ({
     attachments: [
       {
         filename: "logo.png",
-        path: path.resolve("src/utils/mail/assets/ActionSports.jpeg"),
+        path: path.resolve("src/utils/mail/assets/ActionSports.png"),
         cid: "logo",
       },
     ],

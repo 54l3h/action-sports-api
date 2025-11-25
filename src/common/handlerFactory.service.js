@@ -3,13 +3,12 @@ import AppError from "../utils/AppError.js";
 import slugify from "slugify";
 import { isValidObjectId } from "mongoose";
 import cloud from "../config/cloudinary.js";
-// import { uploadImageToCloudinary } from "../utils/uploadImageToCloudinary.js";
 
 export const deleteOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
 
-    const document = await Model.findByIdAndDelete(id); // no { new: true } needed
+    const document = await Model.findByIdAndDelete(id);
 
     if (!document) {
       throw new AppError(`${Model.modelName} not found`, 404);
@@ -22,6 +21,7 @@ export const deleteOne = (Model) => {
     });
   });
 };
+
 export const updateOne = (Model) => {
   return asyncHandler(async (req, res, next) => {
     const { id } = req.params;
@@ -73,7 +73,7 @@ export const updateOne = (Model) => {
       if (secure_url && public_id)
         updatedData.image = { secure_url, public_id };
 
-      // 4. Check for duplicate name (FIXED LOGIC)
+      // 4. Check for duplicate name
       // Check if another document with this name exists (excluding the current one)
       const existing = await Model.findOne({ name, _id: { $ne: id } });
 
@@ -87,7 +87,7 @@ export const updateOne = (Model) => {
         return next(new AppError(`${Model.modelName} already exists`, 409));
       }
 
-      // 5. Delete the OLD image from Cloudinary (PREVENTS ORPHANS)
+      // 5. Delete the OLD image from Cloudinary
       const oldPublicId = currentDocument.image
         ? currentDocument.image.public_id
         : null;
@@ -98,7 +98,7 @@ export const updateOne = (Model) => {
           console.warn(`Failed to delete old image ${oldPublicId}:`, delErr);
         }
       }
-    } // End of if (file) block
+    }
     const document = await Model.findByIdAndUpdate(id, updatedData, {
       new: true,
       runValidators: true,
@@ -152,7 +152,6 @@ export const createOne = (Model) => {
 
     const { secure_url, public_id } = uploadResult;
 
-    // Check duplicate name in DB — if duplicate, remove cloud image to avoid orphan
     const existing = await Model.findOne({ name });
     if (existing) {
       try {

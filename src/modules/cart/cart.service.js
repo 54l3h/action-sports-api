@@ -4,12 +4,19 @@ import Cart from "../../models/cart.model.js";
 import Product from "../../models/product.model.js";
 import AppError from "../../utils/AppError.js";
 
+// Utility function to calculate total items and price
 const calculateTotalItemsAndPrice = (cart) => {
   let totalItems = 0;
   let totalPrice = 0;
+
   cart.items.forEach((item) => {
     totalItems += item.qty;
-    totalPrice += item.unitPrice * item.qty;
+
+    // Line item subtotal = (Unit Price * Quantity) + One-Time Installation Price
+    // item.installationPrice is stored on the cart item (see model update below)
+    const lineItemSubtotal = item.unitPrice * item.qty + item.installationPrice;
+
+    totalPrice += lineItemSubtotal;
   });
 
   cart.totalItems = totalItems;
@@ -28,12 +35,24 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
   }
 
   let cart = await Cart.findOne({ userId });
-  
+
+  // Get the installation price from the product
+  const installationPrice = product.installationPrice || 0;
+
   if (!cart) {
+    // Creating a new cart
     cart = await Cart.create({
       userId,
-      items: [{ productId, unitPrice: product.price, qty: 1 }],
-      totalPrice: product.price,
+      items: [
+        {
+          productId,
+          unitPrice: product.price,
+          qty: 1,
+          installationPrice: installationPrice, // Store on cart item
+        },
+      ],
+      // Total price is initial price + one-time installation
+      totalPrice: product.price + installationPrice,
       totalItems: 1,
     });
   } else {
@@ -42,9 +61,17 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
     );
 
     if (productIndex > -1) {
+      // Incrementing quantity for existing item
       cart.items[productIndex].qty += 1;
+      // Installation Price remains the same (one-time charge)
     } else {
-      cart.items.push({ productId, unitPrice: product.price, qty: 1 });
+      // Adding a new, different item
+      cart.items.push({
+        productId,
+        unitPrice: product.price,
+        qty: 1,
+        installationPrice: installationPrice, // Store on cart item
+      });
     }
 
     cart = calculateTotalItemsAndPrice(cart);
@@ -77,7 +104,7 @@ export const getLoggedUserCart = asyncHandler(async (req, res, next) => {
 
   return res.status(201).json({
     success: true,
-    message: "Product added to cart successfully",
+    message: "Cart retrieved successfully",
     data: cart,
   });
 });
@@ -101,6 +128,7 @@ export const removeSpecificCartItem = asyncHandler(async (req, res, next) => {
     throw new AppError("This item is not exist in your cart", 404);
   }
 
+  // Recalculate totals after removal
   cart = calculateTotalItemsAndPrice(cart);
   await cart.save();
 
@@ -156,7 +184,8 @@ export const updateSpecificItemQuantity = asyncHandler(
       return item._id.equals(itemId);
     });
 
-    if (itemIndex < -1) {
+    if (itemIndex < 0) {
+      // Fixed index check from < -1 to < 0
       throw new AppError(
         "This item is not exist in your cart to update its quantity",
         404
@@ -166,6 +195,7 @@ export const updateSpecificItemQuantity = asyncHandler(
     const cartItem = existingCart.items[itemIndex];
     cartItem.qty = quantity;
 
+    // Recalculate totals after quantity update
     existingCart = calculateTotalItemsAndPrice(existingCart);
 
     await existingCart.save();

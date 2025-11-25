@@ -30,16 +30,20 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
     );
   }
 
-  if (user.passwordChangedAt / 1000 >= decoded.iat) {
+  if (user.deactivatedAt) {
+    throw new AppError("This account is deactivated.", 401);
+  }
+
+  if (user.passwordChangedAt && user.passwordChangedAt / 1000 >= decoded.iat) {
     throw new AppError(
       "Password was changed recently. Please log in again.",
       401
     );
   }
-  
-  if (user.deactivatedAt / 1000 >= decoded.iat) {
+
+  if (user.deactivatedAt && user.deactivatedAt / 1000 >= decoded.iat) {
     throw new AppError(
-      "This account is deactivated. Please log in again to activate it.",
+      "Account was deactivated after token was issued. Please log in again.",
       401
     );
   }

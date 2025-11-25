@@ -169,3 +169,13 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
     data: { token },
   });
 });
+
+export const activateAccount = asyncHandler(async (req, res, next) => {
+  const user = req.user;
+  console.log(user);
+
+  return res.status(200).json({
+    success: true,
+    message: "Account activated successfully",
+  });
+});

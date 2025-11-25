@@ -11,6 +11,11 @@ router.post("/sign-in", authService.signin);
 router.post("/forgot-password", authService.forgotPassword);
 router.post("/verify-reset-code", authService.verifyPasswordResetCode);
 router.patch(
+  "/activate-account",
+  authenticationMiddleware,
+  authService.activateAccount
+);
+router.patch(
   "/reset-password",
   authenticationMiddleware,
   authorizationMiddleware(UserRoles.ADMIN, UserRoles.USER),

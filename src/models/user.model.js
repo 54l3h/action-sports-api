@@ -56,8 +56,9 @@ const userSchema = new Schema(
     },
     active: {
       type: Boolean,
-      default: true,
+      default: false,
     },
+    activatedAt: Date,
     deactivatedAt: Date,
     passwordChangedAt: Date,
     passwordResetCode: String,
