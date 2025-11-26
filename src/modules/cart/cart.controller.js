@@ -12,10 +12,11 @@ router
   .post(cartService.addProductToCart)
   .get(cartService.getLoggedUserCart);
 
+router.route("/clear").patch(cartService.clearLoggedUserCart);
+
 router
   .route("/:itemId")
   .delete(cartService.removeSpecificCartItem)
   .patch(cartService.updateSpecificItemQuantity);
 
-router.route("/clear").patch(cartService.clearLoggedUserCart);
 export default router;

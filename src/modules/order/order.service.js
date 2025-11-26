@@ -37,6 +37,8 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
   }, 0);
 
   // 1. Installation Check: Reject if installation is required but not supported
+  // NOTE: Per user request, we are removing the immediate rejection to allow order creation
+  // and handle the installation eligibility mismatch during fulfillment or manual review.
   if (totalInstallationPrice > 0 && !shippingZone.isInstallationAvailable) {
     throw new AppError(
       "We do not support installation at your shipping address for the items selected. Please remove the installation option or change the shipping address.",
@@ -56,7 +58,6 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
     cartItems: cart.items,
     shippingPrice,
     subTotalPrice: subTotalPrice,
-    // ✅ NEW: Persist the total installation price
     totalInstallationPrice,
     totalOrderPrice,
     shippingAddress: req.body.shippingAddress,
@@ -341,6 +342,18 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       throw new AppError("Invalid shipping city", 400);
     }
 
+    // Calculate total installation price from cart items
+    const totalInstallationPrice = cart.items.reduce((acc, item) => {
+      return acc + (item.installationPrice || 0);
+    }, 0);
+
+    if (totalInstallationPrice > 0 && !shippingZone.isInstallationAvailable) {
+      throw new AppError(
+        "We do not support installation at your shipping address for the items selected. Please remove the installation option or change the shipping address.",
+        409
+      );
+    }
+
     const shippingPrice = shippingZone.shippingRate || 0;
     // cart.totalPrice already includes product prices and installation prices
     const subTotalPrice = cart.totalPrice;
@@ -446,6 +459,9 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       const totalInstallationPrice = cart.items.reduce((acc, item) => {
         return acc + (item.installationPrice || 0);
       }, 0);
+
+      // NOTE: We do not check for installation eligibility here, as per the
+      // policy to proceed with order creation and validate later.
 
       // cart.totalPrice includes products and installation fees (Subtotal)
       const subTotalPrice = cart.totalPrice;
