@@ -30,6 +30,14 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Check if account is verified
+  if (!user.verified) {
+    throw new AppError(
+      "Please verify your account first. Check your email for the verification code.",
+      403
+    );
+  }
+
   if (user.deactivatedAt) {
     throw new AppError("This account is deactivated.", 401);
   }

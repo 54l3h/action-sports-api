@@ -6,15 +6,15 @@ import { UserRoles } from "../../models/user.model.js";
 
 const router = Router();
 
+// Public routes (no authentication required)
 router.post("/sign-up", authService.signup);
 router.post("/sign-in", authService.signin);
+router.post("/verify-account", authService.verifyAccount);
+router.post("/resend-verification-code", authService.resendVerificationCode);
 router.post("/forgot-password", authService.forgotPassword);
 router.post("/verify-reset-code", authService.verifyPasswordResetCode);
-router.patch(
-  "/activate-account",
-  authenticationMiddleware,
-  authService.activateAccount
-);
+
+// Protected routes (authentication required)
 router.patch(
   "/reset-password",
   authenticationMiddleware,

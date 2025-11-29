@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import sendEmail from "../mail/send.email.js";
 import forgotPasswordTemplate from "../mail/templates/forgot.password.template.js";
 import orderInvoiceTemplate from "../mail/templates/order.invoice.template.js";
+import accountVerificationTemplate from "../mail/templates/account.verification.template.js";
 
 export const emailEvent = new EventEmitter();
 
@@ -26,6 +27,14 @@ emailEvent.on("forgotPassword", async (data) => {
     data,
     subject: "Forgot Password",
     template: forgotPasswordTemplate,
+  });
+});
+
+emailEvent.on("verifyAccount", async (data) => {
+  await sendOTP({
+    data,
+    subject: "Verify Account",
+    template: accountVerificationTemplate,
   });
 });
 

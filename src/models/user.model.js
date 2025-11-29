@@ -58,8 +58,14 @@ const userSchema = new Schema(
       type: Boolean,
       default: true,
     },
+    verified: {
+      type: Boolean,
+      default: false,
+    },
     activatedAt: Date,
     deactivatedAt: Date,
+    activationCode: String,
+    activationCodeExpiresAt: Date,
     passwordChangedAt: Date,
     passwordResetCode: String,
     passwordResetCodeExpiresAt: Date,
@@ -70,6 +76,7 @@ const userSchema = new Schema(
   { timestamps: true }
 );
 
+// Middleware to automatically clean up expired OTPs
 userSchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
     this.slug = slugify(this.name);
@@ -79,7 +86,58 @@ userSchema.pre("save", async function (next) {
     this.password = await bcrypt.hash(this.password, 8);
   }
 
+  // Remove expired activation code
+  if (
+    this.activationCodeExpiresAt &&
+    this.activationCodeExpiresAt < Date.now()
+  ) {
+    this.activationCode = undefined;
+    this.activationCodeExpiresAt = undefined;
+  }
+
+  // Remove expired password reset code
+  if (
+    this.passwordResetCodeExpiresAt &&
+    this.passwordResetCodeExpiresAt < Date.now()
+  ) {
+    this.passwordResetCode = undefined;
+    this.passwordResetCodeExpiresAt = undefined;
+    this.passwordResetCodeVerified = undefined;
+  }
+
   next();
+});
+
+// Clean up expired OTPs when finding users
+userSchema.post("findOne", async function (doc) {
+  if (doc) {
+    let needsUpdate = false;
+
+    // Remove expired activation code
+    if (
+      doc.activationCodeExpiresAt &&
+      doc.activationCodeExpiresAt < Date.now()
+    ) {
+      doc.activationCode = undefined;
+      doc.activationCodeExpiresAt = undefined;
+      needsUpdate = true;
+    }
+
+    // Remove expired password reset code
+    if (
+      doc.passwordResetCodeExpiresAt &&
+      doc.passwordResetCodeExpiresAt < Date.now()
+    ) {
+      doc.passwordResetCode = undefined;
+      doc.passwordResetCodeExpiresAt = undefined;
+      doc.passwordResetCodeVerified = undefined;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      await doc.save();
+    }
+  }
 });
 
 userSchema.pre("findOneAndUpdate", async function (next) {

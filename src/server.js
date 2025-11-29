@@ -20,6 +20,9 @@ import AppError from "./utils/AppError.js";
 import cors from "cors";
 import compression from "compression";
 import { webhookCheckout } from "./modules/order/order.service.js";
+import cron from "node-cron";
+import { cleanupExpiredOTPs } from "./utils/cleanupExpiredOTPs.js";
+import logger from "./utils/logger.js";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -28,6 +31,12 @@ const ENV = process.env.NODE_ENV;
 const app = express();
 app.use(cors());
 app.use(compression());
+
+// Schedule cleanup job - runs every hour at minute 0
+cron.schedule("0 * * * *", () => {
+  logger.info("Running scheduled OTP cleanup job");
+  cleanupExpiredOTPs();
+});
 
 app.post(
   "/api/payment/paytabs/callback",
@@ -41,7 +50,7 @@ app.use(express.urlencoded({ extended: true }));
 
 if (ENV === "DEVELOPMENT") {
   app.use(morgan("dev"));
-  console.log(`mode: ${ENV}`);
+  logger.info(`Server running in ${ENV} mode`);
 }
 
 // Mount routes
@@ -68,21 +77,27 @@ app.use((req, res, next) => {
 app.use(errorHandlingMiddleware);
 
 const server = app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  logger.info(`Server is running on port ${PORT}`);
+  // logger.info(`Swagger docs available at http://localhost:${PORT}/api-docs`);
 });
 
 // Global Error Handlers
 process.on("uncaughtException", (err) => {
-  console.error("UNCAUGHT EXCEPTION");
-  console.error(err.name, err.message, err.stack);
+  logger.error("UNCAUGHT EXCEPTION - Shutting down...", {
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+  });
   server.close(() => {
     process.exit(1);
   });
 });
 
 process.on("unhandledRejection", async (reason, promise) => {
-  console.error("UNHANDLED REJECTION");
-  console.error({ promise, reason });
+  logger.error("UNHANDLED REJECTION - Shutting down...", {
+    promise,
+    reason,
+  });
   server.close(() => {
     process.exit(1);
   });

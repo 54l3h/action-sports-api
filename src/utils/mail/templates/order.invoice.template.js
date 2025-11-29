@@ -265,7 +265,7 @@ const orderInvoiceTemplate = ({
                                             <th style="padding: 14px 12px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">المنتج</th>
                                             <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">الكمية</th>
                                             <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">سعر الوحدة</th>
-                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">التركيب</th>
+                                            <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">سعر تركيب الوحدة</th>
                                             <th style="padding: 14px 8px; text-align: center; color: #ffffff; font-weight: 700; font-size: 14px;">المجموع</th>
                                         </tr>
                                     </thead>

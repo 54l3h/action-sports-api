@@ -8,6 +8,114 @@ import AppError from "../../utils/AppError.js";
 import axios from "axios";
 import { emailEvent } from "../../utils/events/email.event.js";
 
+// Helper function to check if shipping to Riyadh
+const isShippingToRiyadh = (shippingZone) => {
+  if (!shippingZone) return false;
+  const key = shippingZone.key.toLowerCase();
+  return key === "riyadh";
+};
+
+/**
+ * @description Helper function to clear the cart and update product stock/sold counts.
+ * @access Private/Internal
+ */
+export const clearCart = async (cart) => {
+  const bulkOptions = cart.items.map((item) => ({
+    updateOne: {
+      filter: { _id: item.productId },
+      update: { $inc: { quantity: -item.qty, sold: item.qty } },
+    },
+  }));
+
+  await Product.bulkWrite(bulkOptions);
+
+  cart.items = [];
+  cart.totalPrice = 0;
+  cart.totalItems = 0;
+
+  await cart.save();
+};
+
+/**
+ * @description Helper function to emit the order invoice email event with crucial error handling.
+ * **FIXED:** Installation price is now correctly set to 0 and excluded from row total if shipping is outside Riyadh.
+ * @access Private/Internal
+ */
+export const orderEmitter = async (order, shippingToRiyadh = true) => {
+  const totalInstallationPrice = order.totalInstallationPrice || 0;
+
+  const saudiDate = new Date(order.createdAt).toLocaleDateString("ar-SA", {
+    timeZone: "Asia/Riyadh",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+
+  let paymentMethodText;
+  if (order.paymentMethod === "cash") {
+    paymentMethodText = "الدفع عند الاستلام";
+  } else if (order.paymentMethod === "card") {
+    paymentMethodText = "بطاقة ائتمان / دفع إلكتروني";
+  } else {
+    paymentMethodText = "غير محدد";
+  }
+
+  try {
+    // Assuming order.userId is populated, otherwise fetch user for email/name consistency
+    const user = await UserModel.findById(order.userId);
+    const customerEmail = user.email;
+
+    emailEvent.emit("orderInvoice", {
+      orderId: order._id.toString(),
+      customerName: user.name || "غير محدد",
+      customerEmail: customerEmail,
+      customerPhone: user?.phone || order.userId?.phone || "",
+      orderDate: saudiDate,
+      paymentMethod: paymentMethodText,
+      city: order.shippingAddress?.city?.nameAr || "غير محدد",
+      address: order.shippingAddress?.details || "غير محدد",
+      phone: order.shippingAddress?.phone || user?.phone || "",
+      shippingToRiyadh,
+      items: order.cartItems.map((item) => {
+        // Step 1: Determine the actual installation price per unit for the email
+        const itemInstallationPricePerUnit = shippingToRiyadh
+          ? item.installationPrice || 0
+          : 0;
+
+        // Step 2: Calculate the row total: (Unit Price * Qty) + (Actual Installation Price * Qty)
+        const itemSubtotal = (item.unitPrice || 0) * (item.qty || 1);
+        const itemInstallationTotal =
+          itemInstallationPricePerUnit * (item.qty || 1);
+        const itemRowTotal = itemSubtotal + itemInstallationTotal;
+
+        return {
+          name: item.productId?.name || "منتج غير معروف",
+          quantity: item.qty || 1,
+          unitPrice: (item.unitPrice || 0).toFixed(2),
+          // FIX: Use the conditional price here for display
+          installationPrice: itemInstallationPricePerUnit.toFixed(2),
+          // FIX: Use the corrected row total
+          total: itemRowTotal.toFixed(2),
+        };
+      }),
+      totalInstallation: totalInstallationPrice.toFixed(2),
+      subtotal: (order.subTotalPrice || 0).toFixed(2), // Correct Products Only total
+      shipping: (order.shippingPrice || 0).toFixed(2),
+      grandTotal: (order.totalOrderPrice || 0).toFixed(2),
+    });
+  } catch (error) {
+    // Log the error but do not throw it, allowing the main order flow to complete.
+    console.error(
+      `🔴 Order ${order._id} - Failed to emit order invoice event:`,
+      error.message,
+      error
+    );
+  }
+};
+
 /**
  * @description Create cash order
  * @route POST /api/orders
@@ -15,7 +123,6 @@ import { emailEvent } from "../../utils/events/email.event.js";
  */
 export const createCashOrder = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
-
   const shippingZoneId = req.body.shippingAddress.city;
   const shippingZone = await ShippingZones.findById(shippingZoneId);
 
@@ -23,36 +130,37 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
     throw new AppError("Invalid shipping city.", 400);
   }
 
-  const taxPrice = 0;
-
   const cart = await Cart.findOne({ userId: req.user._id });
 
   if (!cart || cart.items.length === 0) {
     throw new AppError("Your cart is empty, cannot create order", 409);
   }
 
-  // Calculate total installation price from cart items
-  const totalInstallationPrice = cart.items.reduce((acc, item) => {
-    return acc + (item.installationPrice || 0);
-  }, 0);
+  const shippingToRiyadh = isShippingToRiyadh(shippingZone);
 
-  // 1. Installation Check: Reject if installation is required but not supported
-  // NOTE: Per user request, we are removing the immediate rejection to allow order creation
-  // and handle the installation eligibility mismatch during fulfillment or manual review.
-  if (totalInstallationPrice > 0 && !shippingZone.isInstallationAvailable) {
-    throw new AppError(
-      "We do not support installation at your shipping address for the items selected. Please remove the installation option or change the shipping address.",
-      409
-    );
-  }
+  // Calculate installation price (only for Riyadh)
+  const totalInstallationPrice = shippingToRiyadh
+    ? cart.items.reduce(
+        (acc, item) => acc + (item.installationPrice || 0) * item.qty,
+        0
+      )
+    : 0;
 
   const shippingPrice = shippingZone.shippingRate || 0;
 
-  // cart.totalPrice already includes product prices and all installation prices (Subtotal)
-  const subTotalPrice = cart.totalPrice;
-  const totalOrderPrice = subTotalPrice + taxPrice + shippingPrice;
+  // FIX: Calculate subTotalPrice as the total price of products ONLY.
+  let productsOnlySubtotal = 0;
+  for (const item of cart.items) {
+    productsOnlySubtotal += item.unitPrice * item.qty;
+  }
 
-  // Create order with default payment method (cash)
+  // The true subtotal (products only)
+  const subTotalPrice = productsOnlySubtotal;
+
+  // Calculate the total order price: Products + Installation + Shipping
+  const totalOrderPrice =
+    subTotalPrice + totalInstallationPrice + shippingPrice;
+
   const createdOrder = await Order.create({
     userId,
     cartItems: cart.items,
@@ -72,8 +180,7 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
   }
 
   const order = await Order.findById(createdOrder._id);
-
-  orderEmitter(order);
+  await orderEmitter(order, shippingToRiyadh);
 
   await clearCart(cart);
 
@@ -89,6 +196,7 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
  * @route GET /api/orders
  * @access Admin
  */
+
 export const getAllOrders = asyncHandler(async (req, res, next) => {
   const filter = {};
 
@@ -135,7 +243,6 @@ export const getSpecificOrder = asyncHandler(async (req, res, next) => {
     throw new AppError("Order not found", 404);
   }
 
-  // Only the owner or an admin can access this order
   if (!order.userId.equals(userId) && req.user.role !== UserRoles.ADMIN) {
     throw new AppError("You are not authorized to view this order", 403);
   }
@@ -175,18 +282,15 @@ export const getLoggedUserOrders = asyncHandler(async (req, res, next) => {
 export const updateOrderPaymentStatus = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
-  // Find the order by ID
   const order = await Order.findById(id);
   if (!order) {
     throw new AppError("Order not found", 404);
   }
 
-  // Prevent updating if already paid
   if (order.isPaid) {
     throw new AppError("This order has already been marked as paid", 400);
   }
 
-  // Update payment status
   order.isPaid = true;
   order.paidAt = Date.now();
 
@@ -220,10 +324,8 @@ export const updateOrderDeliveryStatus = asyncHandler(
       throw new AppError("Order has already been delivered", 400);
     }
 
-    // Update status
     order.deliveryStatus = status;
 
-    // Auto-mark delivered
     if (status === ORDER_DELIVERY_STATUS.DELIVERED) {
       order.isDelivered = true;
       order.deliveredAt = Date.now();
@@ -248,18 +350,15 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   const { id } = req.params;
 
-  // Find order
   const order = await Order.findById(id);
   if (!order) {
     throw new AppError("Order not found", 404);
   }
 
-  // Check ownership
   if (!order.userId.equals(userId)) {
     throw new AppError("You are not authorized to cancel this order", 403);
   }
 
-  // Check if it's already paid or delivered
   if (order.isPaid) {
     throw new AppError("You cannot cancel a paid order", 400);
   }
@@ -267,12 +366,10 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
     throw new AppError("You cannot cancel a delivered order", 400);
   }
 
-  // Check if already canceled
   if (order.isCanceled) {
     throw new AppError("Order is already canceled", 400);
   }
 
-  // Cancel order
   order.isCanceled = true;
   order.canceledAt = Date.now();
 
@@ -285,27 +382,8 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
   });
 });
 
-const clearCart = async (cart) => {
-  const bulkOptions = cart.items.map((item) => ({
-    updateOne: {
-      filter: { _id: item.productId },
-      update: { $inc: { quantity: -item.qty, sold: item.qty } },
-    },
-  }));
-
-  await Product.bulkWrite(bulkOptions);
-
-  // Clear the cart but keep the same ID
-  cart.items = [];
-  cart.totalPrice = 0;
-  cart.totalItems = 0;
-
-  await cart.save();
-};
-
 export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   try {
-    // Get user's cart
     const cart = await Cart.findOne({ userId: req.user._id }).populate(
       "items.productId",
       "name"
@@ -315,9 +393,7 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       throw new AppError("Your cart is already empty", 409);
     }
 
-    // Build cart description
-    const cartItems = cart.items;
-    const cartDescriptionArray = cartItems.map((item) => {
+    const cartDescriptionArray = cart.items.map((item) => {
       return `${item.productId.name} * ${item.qty}`;
     });
     const cartDescription = cartDescriptionArray.join(", ");
@@ -335,31 +411,33 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       shippingAddress,
     });
 
-    // Get shipping zone details
     const shippingZone = await ShippingZones.findById(shippingAddress.city);
 
     if (!shippingZone) {
       throw new AppError("Invalid shipping city", 400);
     }
 
-    // Calculate total installation price from cart items
-    const totalInstallationPrice = cart.items.reduce((acc, item) => {
-      return acc + (item.installationPrice || 0);
-    }, 0);
+    const shippingToRiyadh = isShippingToRiyadh(shippingZone);
 
-    if (totalInstallationPrice > 0 && !shippingZone.isInstallationAvailable) {
-      throw new AppError(
-        "We do not support installation at your shipping address for the items selected. Please remove the installation option or change the shipping address.",
-        409
-      );
-    }
+    const totalInstallationPrice = shippingToRiyadh
+      ? cart.items.reduce(
+          (acc, item) => acc + (item.installationPrice || 0) * item.qty,
+          0
+        )
+      : 0;
 
     const shippingPrice = shippingZone.shippingRate || 0;
-    // cart.totalPrice already includes product prices and installation prices
-    const subTotalPrice = cart.totalPrice;
-    const cart_amount = subTotalPrice + shippingPrice;
 
-    // Prepare PayTabs payload with proper billing address
+    // FIX: Calculate productsOnlySubtotal
+    let productsOnlySubtotal = 0;
+    for (const item of cart.items) {
+      productsOnlySubtotal += item.unitPrice * item.qty;
+    }
+
+    // The cart_amount sent to PayTabs should be the grand total: Products + Installation + Shipping
+    const cart_amount =
+      productsOnlySubtotal + totalInstallationPrice + shippingPrice;
+
     const payload = {
       profile_id: process.env.PAYTABS_PROFILE_ID,
       tran_type: "sale",
@@ -367,13 +445,11 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       cart_id: cart._id.toString(),
       cart_description: cartDescription,
       cart_currency: "EGP",
-      cart_amount: cart_amount, // Total price including shipping and installation
+      cart_amount: cart_amount, // Uses the corrected grand total
       callback: process.env.PAYTABS_CALLBACK_URL,
       return:
         process.env.PAYTABS_RETURN_URL ||
         "https://yourdomain.com/payment/success",
-
-      // Proper customer details with billing address
       customer_details: {
         name: req.user.name,
         email: req.user.email,
@@ -386,7 +462,6 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       },
     };
 
-    // Make request to PayTabs
     const response = await axios.post(
       "https://secure-egypt.paytabs.com/payment/request",
       payload,
@@ -427,9 +502,7 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
 
   try {
     const paymentData = req.body || req.query;
-
     const { tran_ref, cart_id, payment_result, cart_description } = paymentData;
-
     const responseStatus = payment_result?.response_status;
 
     if (responseStatus === "A") {
@@ -450,29 +523,38 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       }
 
       const shippingAddress = user.shippingAddress;
-
-      // Get shipping zone for price calculation
       const shippingZone = await ShippingZones.findById(shippingAddress?.city);
       const shippingPrice = shippingZone?.shippingRate || 0;
 
-      // Calculate total installation price from cart items
-      const totalInstallationPrice = cart.items.reduce((acc, item) => {
-        return acc + (item.installationPrice || 0);
-      }, 0);
+      const shippingToRiyadh = isShippingToRiyadh(shippingZone);
 
-      // NOTE: We do not check for installation eligibility here, as per the
-      // policy to proceed with order creation and validate later.
+      const totalInstallationPrice = shippingToRiyadh
+        ? cart.items.reduce(
+            (acc, item) => acc + (item.installationPrice || 0) * item.qty,
+            0
+          )
+        : 0;
 
-      // cart.totalPrice includes products and installation fees (Subtotal)
-      const subTotalPrice = cart.totalPrice;
-      const totalOrderPrice = subTotalPrice + shippingPrice;
+      // FIX: Calculate productsOnlySubtotal
+      let productsOnlySubtotal = 0;
+      for (const item of cart.items) {
+        productsOnlySubtotal += item.unitPrice * item.qty;
+      }
 
-      // Create the order
+      const subTotalPrice = productsOnlySubtotal;
+
+      console.log(cart.userId);
+
+      // Calculate the total order price: Products + Installation + Shipping
+      const totalOrderPrice =
+        subTotalPrice + totalInstallationPrice + shippingPrice;
+
       const createdOrder = await Order.create({
         userId: cart.userId,
         cartItems: cart.items,
+        // FIX: Change 'paytabs' to 'card' or the correct enum value for paid orders
         paymentMethod: "card",
-        subTotalPrice: subTotalPrice,
+        subTotalPrice: subTotalPrice, // Corrected to Products Only
         shippingPrice: shippingPrice,
         totalInstallationPrice,
         totalOrderPrice: totalOrderPrice,
@@ -489,7 +571,7 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       });
 
       const order = await Order.findById(createdOrder._id);
-      orderEmitter(order);
+      await orderEmitter(order, shippingToRiyadh);
 
       await clearCart(cart);
     }
@@ -500,69 +582,13 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       message: "Webhook processed successfully",
     });
   } catch (error) {
-    console.error("💥 Webhook Error:", error.message);
+    console.error("💥 Webhook Error:", error.message, error);
     return res.status(200).json({
       received: true,
       error: error.message,
     });
   }
 });
-
-export const orderEmitter = async (order) => {
-  // Read the total installation price directly from the order document
-  const totalInstallationPrice = order.totalInstallationPrice || 0;
-
-  const saudiDate = new Date(order.createdAt).toLocaleDateString("ar-SA", {
-    timeZone: "Asia/Riyadh",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  let paymentMethodText;
-  if (order.paymentMethod === "cash") {
-    paymentMethodText = "الدفع عند الاستلام";
-  } else if (
-    order.paymentMethod === "card" ||
-    order.paymentMethod === "paytabs"
-  ) {
-    paymentMethodText = "بطاقة ائتمان / دفع إلكتروني";
-  } else {
-    paymentMethodText = "غير محدد";
-  }
-
-  emailEvent.emit("orderInvoice", {
-    orderId: order._id.toString(),
-    customerName: order.userId?.name || "غير محدد",
-    customerEmail: order.userId?.email || "",
-    customerPhone: order.userId?.phone || "",
-    orderDate: saudiDate,
-    paymentMethod: paymentMethodText,
-    city: order.shippingAddress?.city?.nameAr || "غير محدد",
-    address: order.shippingAddress?.details || "غير محدد",
-    phone: order.shippingAddress?.phone || order.userId?.phone || "",
-    items: order.cartItems.map((item) => ({
-      name: item.productId?.name || "منتج غير معروف",
-      quantity: item.qty || 1,
-      unitPrice: (item.unitPrice || 0).toFixed(2),
-      // Individual installation price for line item display
-      installationPrice: (item.installationPrice || 0).toFixed(2),
-      // Total price for the line item (Products + Installation)
-      total: (
-        (item.unitPrice || 0) * (item.qty || 1) +
-        (item.installationPrice || 0)
-      ).toFixed(2),
-    })),
-    // The total installation fee for the entire order
-    totalInstallation: totalInstallationPrice.toFixed(2),
-    subtotal: (order.subTotalPrice || 0).toFixed(2),
-    shipping: (order.shippingPrice || 0).toFixed(2),
-    grandTotal: (order.totalOrderPrice || 0).toFixed(2),
-  });
-};
 
 // paytabs response
 // POST /api/orders/pay-with-paytabs 200 763.423 ms - 120
