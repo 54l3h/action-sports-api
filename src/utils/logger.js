@@ -1,9 +1,16 @@
 import winston from "winston";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
 
-// Create logs directory if it doesn't exist
-const logsDir = "logs";
+// Get the directory name in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Create logs directory at the project root
+const logsDir = path.join(__dirname, "..", "..", "logs");
+
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
