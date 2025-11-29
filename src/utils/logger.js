@@ -1,6 +1,12 @@
-// utils/logger.js
 import winston from "winston";
 import path from "path";
+import fs from "fs";
+
+// Create logs directory if it doesn't exist
+const logsDir = "logs";
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
