@@ -16,7 +16,11 @@ export const createUser = asyncHandler(async (req, res, next) => {
     throw new AppError("Passwords not match", 409);
   }
 
-  const user = await User.create(req.body);
+  const user = await User.create({
+    ...req.body,
+    activatedAt: Date.now(),
+    verified: true,
+  });
   return res.status(201).json({
     success: true,
     message: "User created successfully",

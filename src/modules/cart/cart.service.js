@@ -41,6 +41,11 @@ const calculateTotalItemsAndPrice = async (cart) => {
   return cart;
 };
 
+/**
+ * @description Add product to cart
+ * @route POST /api/cart
+ * @access User
+ */
 export const addProductToCart = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   const { productId } = req.body;
@@ -48,6 +53,11 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
   const product = await Product.findById(productId);
   if (!product) {
     throw new AppError("This product does not exist", 404);
+  }
+
+  // Check if product is in stock
+  if (product.quantity <= 0) {
+    throw new AppError("This product is out of stock", 400);
   }
 
   let cart = await Cart.findOne({ userId });
@@ -74,7 +84,17 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
     );
 
     if (productIndex > -1) {
-      cart.items[productIndex].qty += 1;
+      const newQty = cart.items[productIndex].qty + 1;
+
+      // Check if requested quantity exceeds available stock
+      if (newQty > product.quantity) {
+        throw new AppError(
+          `Only ${product.quantity} units available in stock`,
+          400
+        );
+      }
+
+      cart.items[productIndex].qty = newQty;
     } else {
       cart.items.push({
         productId,
@@ -114,10 +134,10 @@ export const getLoggedUserCart = asyncHandler(async (req, res, next) => {
 
   await cart.populate({
     path: "items.productId",
-    select: "name title images installationPrice",
+    select: "name title images installationPrice quantity",
   });
 
-  return res.status(201).json({
+  return res.status(200).json({
     success: true,
     message: "Cart retrieved successfully",
     data: cart,
@@ -140,7 +160,7 @@ export const removeSpecificCartItem = asyncHandler(async (req, res, next) => {
   );
 
   if (!cart) {
-    throw new AppError("This item is not exist in your cart", 404);
+    throw new AppError("This item does not exist in your cart", 404);
   }
 
   cart = await calculateTotalItemsAndPrice(cart);
@@ -191,7 +211,7 @@ export const updateSpecificItemQuantity = asyncHandler(
 
     let existingCart = await Cart.findOne({ userId });
     if (!existingCart || existingCart.items.length === 0) {
-      throw new AppError("Your cart is already empty", 409);
+      throw new AppError("Your cart is empty", 409);
     }
 
     const itemIndex = existingCart.items.findIndex((item) => {
@@ -199,14 +219,25 @@ export const updateSpecificItemQuantity = asyncHandler(
     });
 
     if (itemIndex < 0) {
-      throw new AppError(
-        "This item is not exist in your cart to update its quantity",
-        404
-      );
+      throw new AppError("This item does not exist in your cart", 404);
     }
 
     const cartItem = existingCart.items[itemIndex];
     const newQuantity = Math.max(0, parseInt(quantity, 10));
+
+    // Get the product to check stock availability
+    const product = await Product.findById(cartItem.productId);
+    if (!product) {
+      throw new AppError("Product not found", 404);
+    }
+
+    // Check if requested quantity exceeds available stock
+    if (newQuantity > product.quantity) {
+      throw new AppError(
+        `Only ${product.quantity} units available in stock`,
+        400
+      );
+    }
 
     if (newQuantity === 0) {
       existingCart.items.splice(itemIndex, 1);

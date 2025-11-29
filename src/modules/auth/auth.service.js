@@ -68,7 +68,7 @@ export const signup = asyncHandler(async (req, res, next) => {
     success: true,
     message:
       "Account created successfully, please check your email to verify your account",
-    data: { token },
+    data: { otp: activationCode, token },
   });
 });
 
@@ -201,6 +201,7 @@ export const resendVerificationCode = asyncHandler(async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: "Verification code sent to your email",
+    data: { otp: activationCode },
   });
 });
 
