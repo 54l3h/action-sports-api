@@ -7,12 +7,37 @@ import ShippingZones from "../../models/shippingZones.model.js";
 import AppError from "../../utils/AppError.js";
 import axios from "axios";
 import { emailEvent } from "../../utils/events/email.event.js";
+import logger from "../../utils/logger.js";
 
 // Helper function to check if shipping to Riyadh
 const isShippingToRiyadh = (shippingZone) => {
   if (!shippingZone) return false;
   const key = shippingZone.key.toLowerCase();
   return key === "riyadh";
+};
+
+/**
+ * @description Helper function to validate stock availability before checkout
+ * @access Private/Internal
+ */
+const validateCartStock = async (cart) => {
+  for (const item of cart.items) {
+    const product = await Product.findById(item.productId);
+
+    if (!product) {
+      throw new AppError(
+        `Product ${item.productId?.name || "unknown"} no longer exists`,
+        404
+      );
+    }
+
+    if (product.quantity < item.qty) {
+      throw new AppError(
+        `Insufficient stock for ${product.name}. Only ${product.quantity} units available`,
+        400
+      );
+    }
+  }
 };
 
 /**
@@ -38,7 +63,6 @@ export const clearCart = async (cart) => {
 
 /**
  * @description Helper function to emit the order invoice email event with crucial error handling.
- * **FIXED:** Installation price is now correctly set to 0 and excluded from row total if shipping is outside Riyadh.
  * @access Private/Internal
  */
 export const orderEmitter = async (order, shippingToRiyadh = true) => {
@@ -64,7 +88,6 @@ export const orderEmitter = async (order, shippingToRiyadh = true) => {
   }
 
   try {
-    // Assuming order.userId is populated, otherwise fetch user for email/name consistency
     const user = await UserModel.findById(order.userId);
     const customerEmail = user.email;
 
@@ -80,12 +103,10 @@ export const orderEmitter = async (order, shippingToRiyadh = true) => {
       phone: order.shippingAddress?.phone || user?.phone || "",
       shippingToRiyadh,
       items: order.cartItems.map((item) => {
-        // Step 1: Determine the actual installation price per unit for the email
         const itemInstallationPricePerUnit = shippingToRiyadh
           ? item.installationPrice || 0
           : 0;
 
-        // Step 2: Calculate the row total: (Unit Price * Qty) + (Actual Installation Price * Qty)
         const itemSubtotal = (item.unitPrice || 0) * (item.qty || 1);
         const itemInstallationTotal =
           itemInstallationPricePerUnit * (item.qty || 1);
@@ -95,24 +116,27 @@ export const orderEmitter = async (order, shippingToRiyadh = true) => {
           name: item.productId?.name || "منتج غير معروف",
           quantity: item.qty || 1,
           unitPrice: (item.unitPrice || 0).toFixed(2),
-          // FIX: Use the conditional price here for display
+          originalPrice: (item.productId?.price || 0).toFixed(2),
+          discount: item.productId?.priceAfterDiscount
+            ? (
+                (item.productId.price - item.productId.priceAfterDiscount) *
+                item.qty
+              ).toFixed(2)
+            : "0.00",
           installationPrice: itemInstallationPricePerUnit.toFixed(2),
-          // FIX: Use the corrected row total
           total: itemRowTotal.toFixed(2),
         };
       }),
       totalInstallation: totalInstallationPrice.toFixed(2),
-      subtotal: (order.subTotalPrice || 0).toFixed(2), // Correct Products Only total
+      subtotal: (order.subTotalPrice || 0).toFixed(2),
       shipping: (order.shippingPrice || 0).toFixed(2),
       grandTotal: (order.totalOrderPrice || 0).toFixed(2),
     });
   } catch (error) {
-    // Log the error but do not throw it, allowing the main order flow to complete.
-    console.error(
-      `🔴 Order ${order._id} - Failed to emit order invoice event:`,
-      error.message,
-      error
-    );
+    logger.error(`Order ${order._id} - Failed to emit order invoice event:`, {
+      message: error.message,
+      stack: error.stack,
+    });
   }
 };
 
@@ -127,7 +151,7 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
   const shippingZone = await ShippingZones.findById(shippingZoneId);
 
   if (!shippingZone) {
-    throw new AppError("Invalid shipping city.", 400);
+    throw new AppError("Invalid shipping city", 400);
   }
 
   const cart = await Cart.findOne({ userId: req.user._id });
@@ -136,9 +160,11 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
     throw new AppError("Your cart is empty, cannot create order", 409);
   }
 
+  // Validate stock availability
+  await validateCartStock(cart);
+
   const shippingToRiyadh = isShippingToRiyadh(shippingZone);
 
-  // Calculate installation price (only for Riyadh)
   const totalInstallationPrice = shippingToRiyadh
     ? cart.items.reduce(
         (acc, item) => acc + (item.installationPrice || 0) * item.qty,
@@ -148,16 +174,12 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
 
   const shippingPrice = shippingZone.shippingRate || 0;
 
-  // FIX: Calculate subTotalPrice as the total price of products ONLY.
   let productsOnlySubtotal = 0;
   for (const item of cart.items) {
     productsOnlySubtotal += item.unitPrice * item.qty;
   }
 
-  // The true subtotal (products only)
   const subTotalPrice = productsOnlySubtotal;
-
-  // Calculate the total order price: Products + Installation + Shipping
   const totalOrderPrice =
     subTotalPrice + totalInstallationPrice + shippingPrice;
 
@@ -174,12 +196,15 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
 
   if (!createdOrder) {
     throw new AppError(
-      "An error occured while trying to create your order, please try again later",
+      "An error occurred while trying to create your order, please try again later",
       409
     );
   }
 
-  const order = await Order.findById(createdOrder._id);
+  const order = await Order.findById(createdOrder._id).populate(
+    "cartItems.productId",
+    "name price priceAfterDiscount"
+  );
   await orderEmitter(order, shippingToRiyadh);
 
   await clearCart(cart);
@@ -196,7 +221,6 @@ export const createCashOrder = asyncHandler(async (req, res, next) => {
  * @route GET /api/orders
  * @access Admin
  */
-
 export const getAllOrders = asyncHandler(async (req, res, next) => {
   const filter = {};
 
@@ -213,7 +237,7 @@ export const getAllOrders = asyncHandler(async (req, res, next) => {
 
   const orders = await Order.find(filter)
     .populate("userId", "name email")
-    .populate("cartItems.productId", "title price")
+    .populate("cartItems.productId", "title price priceAfterDiscount")
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit);
@@ -229,7 +253,7 @@ export const getAllOrders = asyncHandler(async (req, res, next) => {
 });
 
 /**
- * @description Get all order
+ * @description Get specific order
  * @route GET /api/orders/:id
  * @access Admin/User
  */
@@ -237,7 +261,10 @@ export const getSpecificOrder = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   const orderId = req.params.id;
 
-  const order = await Order.findById(orderId);
+  const order = await Order.findById(orderId).populate(
+    "cartItems.productId",
+    "name price priceAfterDiscount"
+  );
 
   if (!order) {
     throw new AppError("Order not found", 404);
@@ -262,9 +289,13 @@ export const getSpecificOrder = asyncHandler(async (req, res, next) => {
 export const getLoggedUserOrders = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
-  const orders = await Order.find({ userId });
+  const orders = await Order.find({ userId }).populate(
+    "cartItems.productId",
+    "name price priceAfterDiscount"
+  );
+
   if (orders.length === 0) {
-    throw new AppError("You didn't create any order yet");
+    throw new AppError("You didn't create any order yet", 404);
   }
 
   return res.status(200).json({
@@ -304,6 +335,7 @@ export const updateOrderPaymentStatus = asyncHandler(async (req, res, next) => {
 });
 
 /**
+ * @description Update order delivery status
  * @route PATCH /api/orders/:id/status/:status
  * @access Admin
  */
@@ -382,6 +414,11 @@ export const cancelOrderByUser = asyncHandler(async (req, res, next) => {
   });
 });
 
+/**
+ * @description Initialize PayTabs payment
+ * @route POST /api/orders/pay-with-paytabs
+ * @access User
+ */
 export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   try {
     const cart = await Cart.findOne({ userId: req.user._id }).populate(
@@ -390,8 +427,11 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
     );
 
     if (!cart || cart.items.length === 0) {
-      throw new AppError("Your cart is already empty", 409);
+      throw new AppError("Your cart is empty", 409);
     }
+
+    // Validate stock availability
+    await validateCartStock(cart);
 
     const cartDescriptionArray = cart.items.map((item) => {
       return `${item.productId.name} * ${item.qty}`;
@@ -428,13 +468,11 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
 
     const shippingPrice = shippingZone.shippingRate || 0;
 
-    // FIX: Calculate productsOnlySubtotal
     let productsOnlySubtotal = 0;
     for (const item of cart.items) {
       productsOnlySubtotal += item.unitPrice * item.qty;
     }
 
-    // The cart_amount sent to PayTabs should be the grand total: Products + Installation + Shipping
     const cart_amount =
       productsOnlySubtotal + totalInstallationPrice + shippingPrice;
 
@@ -445,7 +483,7 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       cart_id: cart._id.toString(),
       cart_description: cartDescription,
       cart_currency: "EGP",
-      cart_amount: cart_amount, // Uses the corrected grand total
+      cart_amount: cart_amount,
       callback: process.env.PAYTABS_CALLBACK_URL,
       return:
         process.env.PAYTABS_RETURN_URL ||
@@ -488,7 +526,10 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
       });
     }
   } catch (error) {
-    console.error("PayTabs Error:", error.response?.data || error.message);
+    logger.error("PayTabs Error:", {
+      message: error.message,
+      response: error.response?.data,
+    });
     return res.status(500).json({
       success: false,
       message: "Payment request failed",
@@ -497,6 +538,11 @@ export const payWithPayTabs = asyncHandler(async (req, res, next) => {
   }
 });
 
+/**
+ * @description PayTabs webhook handler
+ * @route POST /api/payment/paytabs/callback
+ * @access Public (webhook)
+ */
 export const webhookCheckout = asyncHandler(async (req, res, next) => {
   const timestamp = new Date().toISOString();
 
@@ -535,26 +581,20 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
           )
         : 0;
 
-      // FIX: Calculate productsOnlySubtotal
       let productsOnlySubtotal = 0;
       for (const item of cart.items) {
         productsOnlySubtotal += item.unitPrice * item.qty;
       }
 
       const subTotalPrice = productsOnlySubtotal;
-
-      console.log(cart.userId);
-
-      // Calculate the total order price: Products + Installation + Shipping
       const totalOrderPrice =
         subTotalPrice + totalInstallationPrice + shippingPrice;
 
       const createdOrder = await Order.create({
         userId: cart.userId,
         cartItems: cart.items,
-        // FIX: Change 'paytabs' to 'card' or the correct enum value for paid orders
         paymentMethod: "card",
-        subTotalPrice: subTotalPrice, // Corrected to Products Only
+        subTotalPrice: subTotalPrice,
         shippingPrice: shippingPrice,
         totalInstallationPrice,
         totalOrderPrice: totalOrderPrice,
@@ -570,7 +610,10 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
         },
       });
 
-      const order = await Order.findById(createdOrder._id);
+      const order = await Order.findById(createdOrder._id).populate(
+        "cartItems.productId",
+        "name price priceAfterDiscount"
+      );
       await orderEmitter(order, shippingToRiyadh);
 
       await clearCart(cart);
@@ -582,7 +625,10 @@ export const webhookCheckout = asyncHandler(async (req, res, next) => {
       message: "Webhook processed successfully",
     });
   } catch (error) {
-    console.error("💥 Webhook Error:", error.message, error);
+    logger.error("Webhook Error:", {
+      message: error.message,
+      stack: error.stack,
+    });
     return res.status(200).json({
       received: true,
       error: error.message,

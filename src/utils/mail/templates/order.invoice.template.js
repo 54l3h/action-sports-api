@@ -33,11 +33,17 @@ const orderInvoiceTemplate = ({
           ? "border-bottom: none;"
           : "border-bottom: 1px solid #f1f5f9;"
       }">${item.quantity}</td>
-      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-size: 14px; white-space: nowrap; ${
+      <td style="padding: 14px 8px; text-align: center; color: #1e293b; font-size: 14px; ${
         index === items.length - 1
           ? "border-bottom: none;"
           : "border-bottom: 1px solid #f1f5f9;"
-      }">${item.unitPrice} ر.س</td>
+      }">
+        ${
+          item.discount && parseFloat(item.discount) > 0
+            ? `<span style="text-decoration: line-through; color: #94a3b8; font-size: 12px;">${item.originalPrice} ر.س</span><br/><span style="color: #22c55e; font-weight: 600;">${item.unitPrice} ر.س</span>`
+            : `<span style="white-space: nowrap;">${item.unitPrice} ر.س</span>`
+        }
+      </td>
       <td style="padding: 14px 8px; text-align: center; color: #dc2626; font-weight: 600; font-size: 14px; white-space: nowrap; ${
         index === items.length - 1
           ? "border-bottom: none;"

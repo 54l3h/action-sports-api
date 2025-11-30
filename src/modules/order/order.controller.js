@@ -43,7 +43,7 @@ router.get(
 // Create cash order
 router.post(
   "/",
-  authorizationMiddleware(UserRoles.USER),
+  authorizationMiddleware(UserRoles.USER, UserRoles.ADMIN),
   orderService.createCashOrder
 );
 

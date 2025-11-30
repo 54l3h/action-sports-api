@@ -17,6 +17,7 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     brand,
     subCategory,
     installationPrice,
+    priceAfterDiscount,
   } = req.body;
 
   const existingCategory = await Category.findById(category);
@@ -100,6 +101,7 @@ export const createProduct = asyncHandler(async (req, res, next) => {
     subCategory,
     brand,
     installationPrice,
+    priceAfterDiscount,
     ...req.body,
   });
 

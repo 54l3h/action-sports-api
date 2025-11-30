@@ -18,7 +18,9 @@ const calculateTotalItemsAndPrice = async (cart) => {
     const latestProduct = await Product.findById(item.productId);
 
     if (latestProduct) {
-      const currentUnitPrice = latestProduct.price;
+      // Use priceAfterDiscount if available, otherwise use regular price
+      const currentUnitPrice =
+        latestProduct.priceAfterDiscount || latestProduct.price;
       const currentInstallationPrice = latestProduct.installationPrice || 0;
 
       // Update the cart item with latest prices
@@ -62,6 +64,8 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
 
   let cart = await Cart.findOne({ userId });
 
+  // Use priceAfterDiscount if available, otherwise use regular price
+  const currentUnitPrice = product.priceAfterDiscount || product.price;
   const currentInstallationPrice = product.installationPrice || 0;
 
   if (!cart) {
@@ -70,7 +74,7 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
       items: [
         {
           productId,
-          unitPrice: product.price,
+          unitPrice: currentUnitPrice,
           qty: 1,
           installationPrice: currentInstallationPrice,
         },
@@ -95,10 +99,13 @@ export const addProductToCart = asyncHandler(async (req, res, next) => {
       }
 
       cart.items[productIndex].qty = newQty;
+      // Update price in case discount changed
+      cart.items[productIndex].unitPrice = currentUnitPrice;
+      cart.items[productIndex].installationPrice = currentInstallationPrice;
     } else {
       cart.items.push({
         productId,
-        unitPrice: product.price,
+        unitPrice: currentUnitPrice,
         qty: 1,
         installationPrice: currentInstallationPrice,
       });
@@ -126,7 +133,7 @@ export const getLoggedUserCart = asyncHandler(async (req, res, next) => {
   let cart = await Cart.findOne({ userId });
 
   if (!cart) {
-    throw new AppError("Your cart is empty you didn't add any item yet", 404);
+    throw new AppError("Your cart is empty, you didn't add any item yet", 404);
   }
 
   cart = await calculateTotalItemsAndPrice(cart);
@@ -134,7 +141,8 @@ export const getLoggedUserCart = asyncHandler(async (req, res, next) => {
 
   await cart.populate({
     path: "items.productId",
-    select: "name title images installationPrice quantity",
+    select:
+      "name title images installationPrice quantity price priceAfterDiscount",
   });
 
   return res.status(200).json({
@@ -225,7 +233,7 @@ export const updateSpecificItemQuantity = asyncHandler(
     const cartItem = existingCart.items[itemIndex];
     const newQuantity = Math.max(0, parseInt(quantity, 10));
 
-    // Get the product to check stock availability
+    // Get the product to check stock availability and current price
     const product = await Product.findById(cartItem.productId);
     if (!product) {
       throw new AppError("Product not found", 404);
@@ -243,6 +251,9 @@ export const updateSpecificItemQuantity = asyncHandler(
       existingCart.items.splice(itemIndex, 1);
     } else {
       cartItem.qty = newQuantity;
+      // Update price in case discount changed
+      cartItem.unitPrice = product.priceAfterDiscount || product.price;
+      cartItem.installationPrice = product.installationPrice || 0;
     }
 
     existingCart = await calculateTotalItemsAndPrice(existingCart);
