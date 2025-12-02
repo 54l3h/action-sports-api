@@ -50,4 +50,11 @@ router
     validationMiddleware,
     productService.deleteProduct
   );
+
+router.patch(
+  "/price-after-discount/:id",
+  authenticationMiddleware,
+  authorizationMiddleware(UserRoles.ADMIN),
+  productService.updatePriceAfterDiscount
+);
 export default router;
