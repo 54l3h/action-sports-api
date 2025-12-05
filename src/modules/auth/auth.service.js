@@ -9,8 +9,8 @@ import { emailEvent } from "../../utils/events/email.event.js";
 
 // Helper function to generate tokens
 const generateTokens = (userId) => {
-  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+  const accessToken = jwt.sign({ userId }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   });
 
   const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, {

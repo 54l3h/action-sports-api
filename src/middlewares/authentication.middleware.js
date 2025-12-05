@@ -17,7 +17,7 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
 
   let decoded;
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
+    decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
   } catch (error) {
     throw new AppError("Invalid or expired token", 401);
   }
