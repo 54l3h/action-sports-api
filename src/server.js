@@ -29,7 +29,28 @@ const PORT = process.env.PORT || 3000;
 const ENV = process.env.NODE_ENV;
 
 const app = express();
-app.use(cors());
+const allowedOrigins = [
+  "https://action-sports-l9o9.vercel.app",
+  "http://127.0.0.1:5500",
+  "https://dash-admin-one.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // allow requests with no origin (mobile apps, Postman, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("CORS not allowed: " + origin));
+    },
+    credentials: true,
+  })
+);
+
 app.use(compression());
 
 // Schedule cleanup job - runs every hour at minute 0
