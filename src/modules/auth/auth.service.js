@@ -7,6 +7,19 @@ import { generateOTP } from "../../utils/generateOTP.js";
 import crypto from "node:crypto";
 import { emailEvent } from "../../utils/events/email.event.js";
 
+// Helper function to generate tokens
+const generateTokens = (userId) => {
+  const accessToken = jwt.sign({ userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
+  });
+
+  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  });
+
+  return { accessToken, refreshToken };
+};
+
 export const signup = asyncHandler(async (req, res, next) => {
   const { name, email, phone, password, passwordConfirm } = req.body;
 
@@ -60,15 +73,17 @@ export const signup = asyncHandler(async (req, res, next) => {
     );
   }
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+  const { accessToken, refreshToken } = generateTokens(user._id);
 
   return res.status(201).json({
     success: true,
     message:
       "Account created successfully, please check your email to verify your account",
-    data: { otp: activationCode, token },
+    data: {
+      otp: activationCode,
+      accessToken,
+      refreshToken,
+    },
   });
 });
 
@@ -100,14 +115,15 @@ export const signin = asyncHandler(async (req, res, next) => {
     throw new AppError("Your account has been deactivated", 403);
   }
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+  const { accessToken, refreshToken } = generateTokens(user._id);
 
   return res.status(200).json({
     success: true,
     message: "Signed in successfully",
-    data: { token },
+    data: {
+      accessToken,
+      refreshToken,
+    },
   });
 });
 
@@ -143,14 +159,15 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
   user.activationCodeExpiresAt = undefined;
   await user.save();
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+  const { accessToken, refreshToken } = generateTokens(user._id);
 
   return res.status(200).json({
     success: true,
     message: "Account activated successfully",
-    data: { token },
+    data: {
+      accessToken,
+      refreshToken,
+    },
   });
 });
 
@@ -276,14 +293,15 @@ export const verifyPasswordResetCode = asyncHandler(async (req, res, next) => {
   user.passwordResetCodeExpiresAt = Date.now() + 10 * 60 * 1000;
   await user.save();
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+  const { accessToken, refreshToken } = generateTokens(user._id);
 
   return res.status(200).json({
     success: true,
     message: "OTP verified successfully",
-    data: { token },
+    data: {
+      accessToken,
+      refreshToken,
+    },
   });
 });
 
@@ -310,13 +328,62 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
   user.passwordResetCodeExpiresAt = undefined;
   await user.save();
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
-  });
+  const { accessToken, refreshToken } = generateTokens(user._id);
 
   return res.status(200).json({
     success: true,
     message: "Password reset successfully",
-    data: { token },
+    data: {
+      accessToken,
+      refreshToken,
+    },
+  });
+});
+
+export const refreshToken = asyncHandler(async (req, res, next) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    throw new AppError("Refresh token is required", 400);
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+  } catch (error) {
+    throw new AppError("Invalid or expired refresh token", 401);
+  }
+
+  const user = await User.findById(decoded.userId);
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (!user.verified) {
+    throw new AppError("Account not verified", 403);
+  }
+
+  if (user.deactivatedAt) {
+    throw new AppError("Account has been deactivated", 403);
+  }
+
+  // Check if password was changed after token was issued
+  if (user.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      user.passwordChangedAt.getTime() / 1000,
+      10
+    );
+    if (decoded.iat < changedTimestamp) {
+      throw new AppError("Password was changed. Please login again", 401);
+    }
+  }
+
+  const tokens = generateTokens(user._id);
+
+  return res.status(200).json({
+    success: true,
+    message: "Token refreshed successfully",
+    data: tokens,
   });
 });

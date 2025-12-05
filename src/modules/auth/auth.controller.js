@@ -9,6 +9,7 @@ const router = Router();
 // Public routes (no authentication required)
 router.post("/sign-up", authService.signup);
 router.post("/sign-in", authService.signin);
+router.post("/token/refresh", authService.refreshToken);
 router.post("/verify-account", authService.verifyAccount);
 router.post("/resend-verification-code", authService.resendVerificationCode);
 router.post("/forgot-password", authService.forgotPassword);
