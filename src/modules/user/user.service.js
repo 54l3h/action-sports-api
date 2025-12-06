@@ -189,8 +189,8 @@ export const updateLoggedUserPassword = asyncHandler(async (req, res, next) => {
 
   await user.save();
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN,
+  const token = jwt.sign({ userId: user._id }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
   });
 
   return res.status(200).json({

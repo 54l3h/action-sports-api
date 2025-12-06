@@ -4,15 +4,18 @@ import User from "../models/user.model.js";
 import AppError from "../utils/AppError.js";
 
 export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
-  const { authorization } = req.headers;
+  // Try to get token from cookies first, then fall back to Authorization header
+  let token = req.cookies.accessToken;
 
-  if (!authorization || !authorization.startsWith("Bearer ")) {
-    throw new AppError("Authorization header is missing or invalid", 401);
+  if (!token) {
+    const { authorization } = req.headers;
+    if (authorization && authorization.startsWith("Bearer ")) {
+      token = authorization.split(" ")[1];
+    }
   }
 
-  const token = authorization.split(" ")[1];
   if (!token) {
-    throw new AppError("Token not provided", 401);
+    throw new AppError("Authentication token is required", 401);
   }
 
   let decoded;
@@ -30,7 +33,6 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
     );
   }
 
-  // Check if account is verified
   if (!user.verified) {
     throw new AppError(
       "Please verify your account first. Check your email for the verification code.",
@@ -57,6 +59,5 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
   }
 
   req.user = user;
-
   next();
 });

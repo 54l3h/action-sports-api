@@ -23,6 +23,7 @@ import { webhookCheckout } from "./modules/order/order.service.js";
 import cron from "node-cron";
 import { cleanupExpiredOTPs } from "./utils/cleanupExpiredOTPs.js";
 import logger from "./utils/logger.js";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,8 @@ const allowedOrigins = [
   "http://127.0.0.1:5500",
   "https://dash-admin-one.vercel.app",
 ];
+
+app.use(cookieParser());
 
 app.use(
   cors({

@@ -20,6 +20,29 @@ const generateTokens = (userId) => {
   return { accessToken, refreshToken };
 };
 
+// Helper function to set both tokens as cookies
+const setTokensCookies = (res, accessToken, refreshToken) => {
+  const isProduction = process.env.NODE_ENV === "development";
+
+  // Set access token cookie
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true, // Prevents JavaScript access
+    secure: isProduction, // HTTPS only in production
+    sameSite: isProduction ? "strict" : "lax", // CSRF protection
+    maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
+    path: "/",
+  });
+
+  // Set refresh token cookie
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+    path: "/",
+  });
+};
+
 export const signup = asyncHandler(async (req, res, next) => {
   const { name, email, phone, password, passwordConfirm } = req.body;
 
@@ -74,6 +97,7 @@ export const signup = asyncHandler(async (req, res, next) => {
   }
 
   const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(201).json({
     success: true,
@@ -81,8 +105,6 @@ export const signup = asyncHandler(async (req, res, next) => {
       "Account created successfully, please check your email to verify your account",
     data: {
       otp: activationCode,
-      accessToken,
-      refreshToken,
     },
   });
 });
@@ -116,14 +138,11 @@ export const signin = asyncHandler(async (req, res, next) => {
   }
 
   const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(200).json({
     success: true,
     message: "Signed in successfully",
-    data: {
-      accessToken,
-      refreshToken,
-    },
   });
 });
 
@@ -160,14 +179,11 @@ export const verifyAccount = asyncHandler(async (req, res, next) => {
   await user.save();
 
   const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(200).json({
     success: true,
     message: "Account activated successfully",
-    data: {
-      accessToken,
-      refreshToken,
-    },
   });
 });
 
@@ -294,14 +310,11 @@ export const verifyPasswordResetCode = asyncHandler(async (req, res, next) => {
   await user.save();
 
   const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(200).json({
     success: true,
     message: "OTP verified successfully",
-    data: {
-      accessToken,
-      refreshToken,
-    },
   });
 });
 
@@ -329,22 +342,19 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
   await user.save();
 
   const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(200).json({
     success: true,
     message: "Password reset successfully",
-    data: {
-      accessToken,
-      refreshToken,
-    },
   });
 });
 
 export const refreshToken = asyncHandler(async (req, res, next) => {
-  const { refreshToken } = req.body;
+  const refreshToken = req.cookies.refreshToken;
 
   if (!refreshToken) {
-    throw new AppError("Refresh token is required", 400);
+    throw new AppError("Refresh token is required", 401);
   }
 
   let decoded;
@@ -380,10 +390,27 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
   }
 
   const tokens = generateTokens(user._id);
+  setTokensCookies(res, tokens.accessToken, tokens.refreshToken);
 
   return res.status(200).json({
     success: true,
     message: "Token refreshed successfully",
-    data: tokens,
+  });
+});
+
+export const logout = asyncHandler(async (req, res, next) => {
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "development",
+    sameSite: process.env.NODE_ENV === "development" ? "strict" : "lax",
+    path: "/",
+  };
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
   });
 });
