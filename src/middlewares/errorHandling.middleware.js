@@ -20,7 +20,7 @@ export const errorHandlingMiddleware = (error, req, res, next) => {
     success: false,
     status: error.status || "error",
     message: error.message || "Internal Server Error",
-    stack: process.env.NODE_ENV === "DEVELOPMENT" ? error.stack : undefined,
+    stack: process.env.NODE_ENV === "production" ? error.stack : undefined,
   });
 };
 

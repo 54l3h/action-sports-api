@@ -4,9 +4,10 @@ import User from "../models/user.model.js";
 import AppError from "../utils/AppError.js";
 
 export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
-  // Try to get token from cookies first, then fall back to Authorization header
+  // Read token from cookies (primary method)
   let token = req.cookies.accessToken;
 
+  // Fallback to Authorization header for API clients that can't use cookies
   if (!token) {
     const { authorization } = req.headers;
     if (authorization && authorization.startsWith("Bearer ")) {
@@ -15,14 +16,17 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
   }
 
   if (!token) {
-    throw new AppError("Authentication token is required", 401);
+    throw new AppError("Authentication required. Please login.", 401);
   }
 
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
   } catch (error) {
-    throw new AppError("Invalid or expired token", 401);
+    if (error.name === "TokenExpiredError") {
+      throw new AppError("Token expired. Please refresh your token.", 401);
+    }
+    throw new AppError("Invalid token. Please login again.", 401);
   }
 
   const user = await User.findById(decoded.userId);
@@ -33,6 +37,7 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Check if account is verified
   if (!user.verified) {
     throw new AppError(
       "Please verify your account first. Check your email for the verification code.",
@@ -44,18 +49,32 @@ export const authenticationMiddleware = asyncHandler(async (req, res, next) => {
     throw new AppError("This account is deactivated.", 401);
   }
 
-  if (user.passwordChangedAt && user.passwordChangedAt / 1000 >= decoded.iat) {
-    throw new AppError(
-      "Password was changed recently. Please log in again.",
-      401
+  // Check if password was changed after token was issued
+  if (user.passwordChangedAt) {
+    const changedTimestamp = parseInt(
+      user.passwordChangedAt.getTime() / 1000,
+      10
     );
+    if (decoded.iat < changedTimestamp) {
+      throw new AppError(
+        "Password was changed recently. Please log in again.",
+        401
+      );
+    }
   }
 
-  if (user.deactivatedAt && user.deactivatedAt / 1000 >= decoded.iat) {
-    throw new AppError(
-      "Account was deactivated after token was issued. Please log in again.",
-      401
+  // Check if account was deactivated after token was issued
+  if (user.deactivatedAt) {
+    const deactivatedTimestamp = parseInt(
+      user.deactivatedAt.getTime() / 1000,
+      10
     );
+    if (decoded.iat < deactivatedTimestamp) {
+      throw new AppError(
+        "Account was deactivated. Please contact support.",
+        401
+      );
+    }
   }
 
   req.user = user;

@@ -5,6 +5,40 @@ import AppError from "../../utils/AppError.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+// Helper function to generate tokens
+const generateTokens = (userId) => {
+  const accessToken = jwt.sign({ userId }, process.env.JWT_ACCESS_SECRET, {
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+  });
+
+  const refreshToken = jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  });
+
+  return { accessToken, refreshToken };
+};
+
+// Helper function to set both tokens as cookies
+const setTokensCookies = (res, accessToken, refreshToken) => {
+  const isProduction = process.env.NODE_ENV === "production";
+
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    maxAge: 15 * 60 * 1000, // 15 minutes
+    path: "/",
+  });
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "strict" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/",
+  });
+};
+
 export const getUser = factory.getOne(User);
 
 export const getUsers = factory.getAll(User);
@@ -45,8 +79,6 @@ export const updateUser = asyncHandler(async (req, res, next) => {
 });
 
 export const addAddress = asyncHandler(async (req, res, next) => {
-  console.log(req.body);
-
   if (!req.user) {
     throw new AppError("You must be logged in to add an address", 401);
   }
@@ -68,7 +100,7 @@ export const addAddress = asyncHandler(async (req, res, next) => {
 
 export const removeAddress = asyncHandler(async (req, res, next) => {
   if (!req.user) {
-    throw new AppError("You must be logged in to add an address", 401);
+    throw new AppError("You must be logged in to remove an address", 401);
   }
 
   const addressId = req.params.id;
@@ -90,14 +122,14 @@ export const removeAddress = asyncHandler(async (req, res, next) => {
 
 export const getLoggedUserAddresses = asyncHandler(async (req, res, next) => {
   if (!req.user) {
-    throw new AppError("You must be logged in to add an address", 401);
+    throw new AppError("You must be logged in to view addresses", 401);
   }
 
   const user = await User.findById(req.user._id).populate("addresses");
 
   return res.status(200).json({
     success: true,
-    message: "User addressed retireved successfully",
+    message: "User addresses retrieved successfully",
     data: user.addresses,
   });
 });
@@ -183,20 +215,18 @@ export const updateLoggedUserPassword = asyncHandler(async (req, res, next) => {
     throw new AppError("New passwords do not match", 400);
   }
 
-  // set new password and update passwordChangedAt so old tokens are invalidated
+  // Set new password and update passwordChangedAt
   user.password = newPassword;
   user.passwordChangedAt = Date.now();
-
   await user.save();
 
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_ACCESS_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
-  });
+  // Generate new tokens and set them in cookies
+  const { accessToken, refreshToken } = generateTokens(user._id);
+  setTokensCookies(res, accessToken, refreshToken);
 
   return res.status(200).json({
     success: true,
-    message: "Password changed successfully. Please sign in again.",
-    data: { token },
+    message: "Password changed successfully",
   });
 });
 
@@ -230,6 +260,17 @@ export const deactivateLoggedUser = asyncHandler(async (req, res, next) => {
     { active: false, deactivatedAt: Date.now() },
     { new: true }
   );
+
+  // Clear authentication cookies on deactivation
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+    path: "/",
+  };
+
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
 
   return res.status(200).json({
     success: true,
