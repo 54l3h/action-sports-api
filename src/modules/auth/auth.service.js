@@ -22,24 +22,27 @@ const generateTokens = (userId) => {
 
 // Helper function to set both tokens as cookies
 const setTokensCookies = (res, accessToken, refreshToken) => {
-  const isProduction = process.env.NODE_ENV === "development";
+  // For cross-origin (local frontend -> Vercel backend), we need:
+  // - secure: true (Vercel uses HTTPS)
+  // - sameSite: 'none' (allows cross-origin cookies)
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: true, // Always true since Vercel uses HTTPS
+    sameSite: "none", // Required for cross-origin requests
+    path: "/",
+  };
 
   // Set access token cookie
   res.cookie("accessToken", accessToken, {
-    httpOnly: true, // Prevents JavaScript access
-    secure: isProduction, // HTTPS only in production
-    sameSite: isProduction ? "strict" : "lax", // CSRF protection
-    maxAge: 15 * 60 * 1000, // 15 minutes in milliseconds
-    path: "/",
+    ...cookieOptions,
+    maxAge: 15 * 60 * 1000, // 15 minutes
   });
 
   // Set refresh token cookie
   res.cookie("refreshToken", refreshToken, {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? "strict" : "lax",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-    path: "/",
+    ...cookieOptions,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 };
 
@@ -401,8 +404,8 @@ export const refreshToken = asyncHandler(async (req, res, next) => {
 export const logout = asyncHandler(async (req, res, next) => {
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "development",
-    sameSite: process.env.NODE_ENV === "development" ? "strict" : "lax",
+    secure: true, // Always true for Vercel (HTTPS)
+    sameSite: "none", // Required for cross-origin
     path: "/",
   };
 
