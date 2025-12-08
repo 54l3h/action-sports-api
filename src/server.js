@@ -30,12 +30,13 @@ const PORT = process.env.PORT || 3000;
 const ENV = process.env.NODE_ENV;
 
 const app = express();
+// Fixed allowedOrigins array - remove trailing slash
 const allowedOrigins = [
   "https://action-sports-l9o9.vercel.app",
   "http://127.0.0.1:5500",
-  "http://localhost:5500", // Add this - some browsers use localhost instead of 127.0.0.1
+  "http://localhost:5500",
   "https://dash-admin-one.vercel.app",
-  "https://pro-action-sports.vercel.app/",
+  "https://pro-action-sports.vercel.app", // Fixed: removed trailing slash
 ];
 
 app.use(cookieParser());
@@ -50,11 +51,13 @@ app.use(
         return callback(null, true);
       }
 
+      // Log the rejected origin for debugging
+      console.log("CORS rejected origin:", origin);
       return callback(new Error("CORS not allowed: " + origin));
     },
-    credentials: true, // Allows cookies to be sent/received
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"], // Explicitly allow methods
-    allowedHeaders: ["Content-Type", "Authorization"], // Explicitly allow headers
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
