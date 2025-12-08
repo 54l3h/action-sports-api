@@ -35,6 +35,7 @@ const allowedOrigins = [
   "http://127.0.0.1:5500",
   "http://localhost:5500", // Add this - some browsers use localhost instead of 127.0.0.1
   "https://dash-admin-one.vercel.app",
+  "https://pro-action-sports.vercel.app/",
 ];
 
 app.use(cookieParser());
