@@ -14,6 +14,7 @@ router.post("/verify-account", authService.verifyAccount);
 router.post("/resend-verification-code", authService.resendVerificationCode);
 router.post("/forgot-password", authService.forgotPassword);
 router.post("/verify-reset-code", authService.verifyPasswordResetCode);
+router.post("/log-out", authService.logout);
 
 // Protected routes (authentication required)
 router.patch(
