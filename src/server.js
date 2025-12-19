@@ -37,6 +37,8 @@ const allowedOrigins = [
   "http://localhost:5500",
   "https://dash-admin-one.vercel.app",
   "https://pro-action-sports.vercel.app", // Fixed: removed trailing slash
+  "https://www.actionsports4u.com",
+  "https://admin.actionsports4u.com",
 ];
 
 app.use(cookieParser());

@@ -3,3 +3,6 @@ uploads/
 logs/
 *.log
 .env
+pair-key-action-s.pem
+awscliv2.zip
+aws/
