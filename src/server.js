@@ -46,20 +46,24 @@ app.use(cookieParser());
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, Postman, server-to-server)
+      // 1. Allow requests with no origin (mobile, Postman)
       if (!origin) return callback(null, true);
 
+      // 2. Check if the origin is in your list
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      // Log the rejected origin for debugging
+      // 3. LOG REJECTION BUT DO NOT THROW AN ERROR
+      // We pass 'false' so Express doesn't crash with a 500 error
       console.log("CORS rejected origin:", origin);
-      return callback(new Error("CORS not allowed: " + origin));
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "Accept"],
+    // 4. Ensure OPTIONS requests return 200 (fixes issues with some browsers)
+    optionsSuccessStatus: 200,
   })
 );
 
