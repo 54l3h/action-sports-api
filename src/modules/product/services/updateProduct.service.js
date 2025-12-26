@@ -20,15 +20,16 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     "category",
     "subcategory",
     "brand",
+    "installationPrice",
+    "priceAfterDiscount",
   ];
 
   const updateQuery = {};
 
-  /* ================================
-     1️⃣ Build $set safely
-  ================================= */
+  // -------------------------
+  // $set (text fields only)
+  // -------------------------
   const setData = {};
-
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
       setData[field] = req.body[field];
@@ -39,20 +40,17 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     updateQuery.$set = setData;
   }
 
-  /* ================================
-     2️⃣ Append images ONLY from files
-  ================================= */
+  // -------------------------
+  // $push (append images)
+  // -------------------------
   if (req.files?.length) {
     const uploads = await Promise.all(
-      req.files.map((file) => {
-        const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
-          "base64"
-        )}`;
-
-        return cloud.uploader.upload(dataUri, {
-          folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
-        });
-      })
+      req.files.map((file) =>
+        cloud.uploader.upload(
+          `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
+          { folder: "uploads/products" }
+        )
+      )
     );
 
     updateQuery.$push = {
@@ -65,13 +63,9 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     };
   }
 
-  /* ================================
-     3️⃣ Prevent empty update
-  ================================= */
   if (!Object.keys(updateQuery).length) {
-    return next(new AppError("No data provided to update", 400));
+    return next(new AppError("Nothing to update", 400));
   }
-  console.log("UPDATE QUERY:", JSON.stringify(updateQuery, null, 2));
 
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
