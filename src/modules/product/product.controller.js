@@ -40,7 +40,6 @@ router
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     uploadMultipleImages("images"),
-    
     productValidationSchema.updateProduct,
     validationMiddleware,
     productService.updateProduct

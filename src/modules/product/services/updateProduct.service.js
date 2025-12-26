@@ -9,21 +9,38 @@ import cloud from "../../../config/cloudinary.js";
  * @access  Private
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
-  delete req.body.images;
-  
   const { id } = req.params;
-  
+
+  const allowedFields = [
+    "name",
+    "title",
+    "description",
+    "quantity",
+    "price",
+    "category",
+    "subcategory",
+    "brand",
+  ];
+
   const updateQuery = {};
 
   /* ================================
-     1️⃣ Update normal fields
+     1️⃣ Build $set safely
   ================================= */
-  if (Object.keys(req.body).length > 0) {
-    updateQuery.$set = { ...req.body };
+  const setData = {};
+
+  for (const field of allowedFields) {
+    if (req.body[field] !== undefined) {
+      setData[field] = req.body[field];
+    }
+  }
+
+  if (Object.keys(setData).length) {
+    updateQuery.$set = setData;
   }
 
   /* ================================
-     2️⃣ Append new images (if any)
+     2️⃣ Append images ONLY from files
   ================================= */
   if (req.files?.length) {
     const uploads = await Promise.all(
@@ -38,24 +55,23 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       })
     );
 
-    const newImages = uploads.map((img) => ({
-      secure_url: img.secure_url,
-      public_id: img.public_id,
-    }));
-
-    updateQuery.$push = { images: { $each: newImages } };
+    updateQuery.$push = {
+      images: {
+        $each: uploads.map((img) => ({
+          secure_url: img.secure_url,
+          public_id: img.public_id,
+        })),
+      },
+    };
   }
 
   /* ================================
-     3️⃣ Prevent empty updates
+     3️⃣ Prevent empty update
   ================================= */
   if (!Object.keys(updateQuery).length) {
     return next(new AppError("No data provided to update", 400));
   }
 
-  /* ================================
-     4️⃣ Single DB call
-  ================================= */
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
@@ -65,8 +81,5 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     return next(new AppError("Product not found", 404));
   }
 
-  res.status(200).json({
-    success: true,
-    data: updatedProduct,
-  });
+  res.status(200).json({ success: true, data: updatedProduct });
 });
