@@ -9,13 +9,14 @@ import cloud from "../../../config/cloudinary.js";
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
+  const updateQuery = {};
 
-  // 1. Define allowed text fields
+  // 1. Text Fields ($set)
+  const setData = {};
   const allowedFields = [
     "name",
     "title",
     "description",
-    "specs",
     "quantity",
     "price",
     "category",
@@ -25,23 +26,16 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     "priceAfterDiscount",
   ];
 
-  // 2. Build the $set object (for text fields)
-  const setData = {};
   for (const field of allowedFields) {
-    if (req.body[field] !== undefined) {
-      setData[field] = req.body[field];
-    }
+    if (req.body[field] !== undefined) setData[field] = req.body[field];
   }
-
-  // 3. Prepare the main update object
-  const updateQuery = {};
 
   if (Object.keys(setData).length > 0) {
     updateQuery.$set = setData;
   }
 
-  // 4. Handle Images - Append using $push + $each
-  if (req.files && req.files.length > 0) {
+  // 2. Images ($push) - DO NOT put this in setData
+  if (req.files?.length > 0) {
     const uploads = await Promise.all(
       req.files.map((file) =>
         cloud.uploader.upload(
@@ -51,7 +45,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       )
     );
 
-    // CRITICAL: We use $push with $each to force an append
+    // This MUST be a separate operator from $set to append
     updateQuery.$push = {
       images: {
         $each: uploads.map((img) => ({
@@ -62,21 +56,12 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     };
   }
 
-  // 5. Validation Check
-  if (Object.keys(updateQuery).length === 0) {
-    return next(new AppError("Nothing to update", 400));
-  }
-
-  // 6. Execute Update
-  // We remove 'strict: true' to ensure MongoDB operators are not blocked
+  // 3. Update execution (Remove strict: true)
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
   });
 
-  if (!updatedProduct) {
-    return next(new AppError("Product not found", 404));
-  }
-
+  if (!updatedProduct) return next(new AppError("Product not found", 404));
   res.status(200).json({ success: true, data: updatedProduct });
 });
