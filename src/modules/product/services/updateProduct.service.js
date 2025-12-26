@@ -6,7 +6,6 @@ import cloud from "../../../config/cloudinary.js";
 /**
  * @desc    Update product (appends images, updates fields)
  * @route   PATCH /api/products/:id
- * @access  Private
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
@@ -15,6 +14,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     "name",
     "title",
     "description",
+    "specs",
     "quantity",
     "price",
     "category",
@@ -26,9 +26,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
 
   const updateQuery = {};
 
-  // -------------------------
-  // $set (text fields only)
-  // -------------------------
+  // --- 1. Text Fields Update ($set) ---
   const setData = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
@@ -36,14 +34,12 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     }
   }
 
-  if (Object.keys(setData).length) {
+  if (Object.keys(setData).length > 0) {
     updateQuery.$set = setData;
   }
 
-  // -------------------------
-  // $push (append images)
-  // -------------------------
-  if (req.files?.length) {
+  // --- 2. Image Append Logic ($push) ---
+  if (req.files && req.files.length > 0) {
     const uploads = await Promise.all(
       req.files.map((file) =>
         cloud.uploader.upload(
@@ -53,6 +49,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       )
     );
 
+    // Using $push with $each explicitly appends to the existing array
     updateQuery.$push = {
       images: {
         $each: uploads.map((img) => ({
@@ -63,14 +60,15 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     };
   }
 
-  if (!Object.keys(updateQuery).length) {
+  if (Object.keys(updateQuery).length === 0) {
     return next(new AppError("Nothing to update", 400));
   }
 
+  // --- 3. Database Execution ---
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
-    strict: true,
+    // Removed strict: true to ensure operators like $push work correctly
   });
 
   if (!updatedProduct) {

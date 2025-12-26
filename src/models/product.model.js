@@ -102,36 +102,26 @@ const productSchema = new Schema(
   { timestamps: true }
 );
 
+// Slugify on save
 productSchema.pre("save", async function (next) {
   if (this.isModified("name") || !this.slug) {
-    this.slug = slugify(this.name);
+    this.slug = slugify(this.name, { lower: true });
   }
-
   next();
 });
-// Combine findOneAndUpdate and updateOne logic
+
+// Slugify on update
 productSchema.pre(["findOneAndUpdate", "updateOne"], function (next) {
   const update = this.getUpdate();
-
-  // Handle name/slug if it exists in $set or top level
-  let name = null;
-  if (update.$set && update.$set.name) {
-    name = update.$set.name;
-  } else if (update.name) {
-    name = update.name;
-  }
+  let name = update.$set?.name || update.name;
 
   if (name) {
     const slug = slugify(name, { lower: true });
-
-    // Ensure we don't overwrite the whole $set object
     if (!update.$set) update.$set = {};
     update.$set.slug = slug;
   }
-
   next();
 });
 
-const ProductModel = model("Product", productSchema);
-
-export default ProductModel;
+const Product = model("Product", productSchema);
+export default Product;
