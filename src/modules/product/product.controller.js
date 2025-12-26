@@ -14,7 +14,7 @@ import { stripImagesFromBody } from "../../middlewares/stripImages.middleware.js
 const router = Router();
 
 router.delete(
-  "/product/image/:id/",
+  "/product/image/:id",
   authenticationMiddleware,
   authorizationMiddleware(UserRoles.ADMIN),
   productService.deleteImage
