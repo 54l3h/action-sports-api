@@ -52,7 +52,7 @@ router
     productService.deleteProduct
   )
   .delete(
-    "/image/:public-id",
+    "/image",
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     productService.deleteImage
