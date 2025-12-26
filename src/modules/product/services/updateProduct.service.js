@@ -1,5 +1,5 @@
 import asyncHandler from "express-async-handler";
-import ProductModel from "../../../models/product.model.js";
+import Product from "../../../models/product.model.js";
 import AppError from "../../../utils/AppError.js";
 import cloud from "../../../config/cloudinary.js";
 
@@ -13,7 +13,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
   const { images, ...restOfBody } = req.body; // Remove images from body
 
   // 1. Check if product exists
-  const product = await ProductModel.findById(id);
+  const product = await Product.findById(id);
   if (!product) return next(new AppError("Product not found", 404));
 
   // 2. Prepare the $set object (for name, price, etc.)
@@ -50,11 +50,10 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     finalUpdate.$push = pushUpdate;
   }
 
-  const updatedProduct = await ProductModel.findByIdAndUpdate(
-    id,
-    finalUpdate, // Using explicit $set and $push
-    { new: true, runValidators: true }
-  );
+  const updatedProduct = await Product.findByIdAndUpdate(id, finalUpdate, {
+    new: true,
+    runValidators: true,
+  });
 
   return res.status(200).json({
     success: true,
