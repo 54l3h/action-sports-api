@@ -15,15 +15,10 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
 
   const product = await Product.findById(id);
   if (!product) {
-    throw new AppError("Product not found", 404);
+    return next(new AppError("Product not found", 404));
   }
 
-  // Generate new slug if name changes
-  if (req.body.name) {
-    updateData.slug = slugify(req.body.name);
-  }
-
-  // Handle image uploads if files are provided
+  // 1. Handle Multiple Images Upload (Appending)
   if (req.files && req.files.length > 0) {
     let newImages = [];
 
@@ -34,29 +29,29 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
       const publicId = `${file.fieldname}-${uniqueSuffix}`;
 
-      let uploadResult;
       try {
-        uploadResult = await cloud.uploader.upload(dataUri, {
-          folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/${
-            Product.modelName
-          }`,
+        const uploadResult = await cloud.uploader.upload(dataUri, {
+          folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
           public_id: publicId,
           resource_type: "image",
-          overwrite: false,
+        });
+
+        newImages.push({
+          secure_url: uploadResult.secure_url,
+          public_id: uploadResult.public_id,
         });
       } catch (err) {
         return next(err);
       }
-
-      const { secure_url, public_id } = uploadResult;
-      newImages.push({ secure_url, public_id });
     }
 
-    // Keep old images and add new images
+    // Preserve old images and add the new ones
     updateData.images = [...(product.images || []), ...newImages];
+  } else {
+    delete updateData.images;
   }
 
-  // Perform update
+  // 2. Perform Update (Slug is handled by your Schema Middleware)
   const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
