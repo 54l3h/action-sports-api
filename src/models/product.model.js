@@ -114,19 +114,17 @@ productSchema.pre("save", async function (next) {
 productSchema.pre(["findOneAndUpdate", "updateOne"], function (next) {
   const update = this.getUpdate();
 
-  // Safely find the name whether it's in $set or the top level
+  // Extract name safely from $set or top-level
   const name = update.$set?.name || update.name;
 
   if (name) {
     const slug = slugify(name, { lower: true });
 
-    // Use the existing $set or create it, but don't overwrite the whole update object
-    if (update.$set) {
-      update.$set.slug = slug;
-    } else {
-      update.slug = slug;
-    }
+    // Merge slug into $set without overwriting the whole object
+    if (!update.$set) update.$set = {};
+    update.$set.slug = slug;
   }
+
   next();
 });
 

@@ -9,10 +9,7 @@ import cloud from "../../../config/cloudinary.js";
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const updateQuery = {};
 
-  // 1. Text Fields ($set)
-  const setData = {};
   const allowedFields = [
     "name",
     "title",
@@ -24,18 +21,21 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     "brand",
     "installationPrice",
     "priceAfterDiscount",
+    "specs",
   ];
 
+  const updateBody = {};
+  const pushBody = {};
+
+  // 1. Text Fields ($set)
   for (const field of allowedFields) {
-    if (req.body[field] !== undefined) setData[field] = req.body[field];
+    if (req.body[field] !== undefined) {
+      updateBody[field] = req.body[field];
+    }
   }
 
-  if (Object.keys(setData).length > 0) {
-    updateQuery.$set = setData;
-  }
-
-  // 2. Images ($push) - DO NOT put this in setData
-  if (req.files?.length > 0) {
+  // 2. Append Images ($push)
+  if (req.files?.length) {
     const uploads = await Promise.all(
       req.files.map((file) =>
         cloud.uploader.upload(
@@ -45,23 +45,33 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       )
     );
 
-    // This MUST be a separate operator from $set to append
-    updateQuery.$push = {
-      images: {
-        $each: uploads.map((img) => ({
-          secure_url: img.secure_url,
-          public_id: img.public_id,
-        })),
-      },
+    // Explicitly use $push with $each
+    pushBody.images = {
+      $each: uploads.map((img) => ({
+        secure_url: img.secure_url,
+        public_id: img.public_id,
+      })),
     };
   }
 
-  // 3. Update execution (Remove strict: true)
-  const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
+  // 3. Construct Final Atomic Query
+  const finalUpdate = {};
+  if (Object.keys(updateBody).length > 0) finalUpdate.$set = updateBody;
+  if (Object.keys(pushBody).length > 0) finalUpdate.$push = pushBody;
+
+  if (Object.keys(finalUpdate).length === 0) {
+    return next(new AppError("Nothing to update", 400));
+  }
+
+  // 4. Execute Update (Strict: false helps avoid Mongoose filtering out $push)
+  const updatedProduct = await Product.findByIdAndUpdate(id, finalUpdate, {
     new: true,
     runValidators: true,
   });
 
-  if (!updatedProduct) return next(new AppError("Product not found", 404));
+  if (!updatedProduct) {
+    return next(new AppError("Product not found", 404));
+  }
+
   res.status(200).json({ success: true, data: updatedProduct });
 });
