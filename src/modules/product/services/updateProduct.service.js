@@ -9,53 +9,46 @@ import cloud from "../../../config/cloudinary.js";
  * @route   PATCH /api/products/:id
  * @access  Private
  */
-
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-
-  // 1. Strip images from body so they aren't overwritten by empty inputs
   const { images, ...restOfBody } = req.body;
+
+  // 1. Check if product exists
+  const product = await Product.findById(id);
+  if (!product) return next(new AppError("Product not found", 404));
+
+  // 2. Prepare Update Object
   let updateData = { ...restOfBody };
 
-  const product = await Product.findById(id);
-  if (!product) {
-    return next(new AppError("Product not found", 404));
+  // Generate slug if name is updated
+  if (updateData.name) {
+    updateData.slug = slugify(updateData.name, { lower: true });
   }
 
-  // 2. Handle Multiple Images Upload
+  // 3. Handle Multiple Images Upload
   if (req.files && req.files.length > 0) {
     let newImages = [];
-
     for (const file of req.files) {
       const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
         "base64"
       )}`;
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      const publicId = `${file.fieldname}-${uniqueSuffix}`;
+      const uploadResult = await cloud.uploader.upload(dataUri, {
+        folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
+        resource_type: "image",
+      });
 
-      try {
-        const uploadResult = await cloud.uploader.upload(dataUri, {
-          folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
-          public_id: publicId,
-          resource_type: "image",
-          overwrite: false,
-        });
-
-        newImages.push({
-          secure_url: uploadResult.secure_url,
-          public_id: uploadResult.public_id,
-        });
-      } catch (err) {
-        return next(err);
-      }
+      newImages.push({
+        secure_url: uploadResult.secure_url,
+        public_id: uploadResult.public_id,
+      });
     }
 
-    // Use $push operator to append to the existing array in the DB
+    // Explicitly use $push to append to existing images
     updateData.$push = { images: { $each: newImages } };
   }
 
-  // 3. Perform Update
-  const updatedProduct = await product.findByIdAndUpdate(id, updateData, {
+  // 4. Update via the MODEL (Product), not the instance (product)
+  const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
   });
