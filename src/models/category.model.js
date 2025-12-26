@@ -17,7 +17,7 @@ const categorySchama = new Schema(
       type: String,
       required: [true, "Category description is required"],
       minLength: [24, "Category description is too short"],
-      maxLength: [700, "Category description is too long"],
+      maxLength: [50, "Category description is too long"],
     },
     image: { secure_url: String, public_id: String },
   },

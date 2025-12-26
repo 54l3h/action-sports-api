@@ -28,14 +28,14 @@ const productSchema = new Schema(
       type: String,
       required: [true, "specs description is required"],
       minLength: [24, "specs description is too short"],
-      maxLength: [2000, "specs description is too long"],
+      maxLength: [7000, "specs description is too long"],
       trim: true,
     },
     description: {
       type: String,
       required: [true, "Product description is required"],
       minLength: [24, "Product description is too short"],
-      maxLength: [700, "Product description is too long"],
+      maxLength: [75, "Product description is too long"],
       trim: true,
     },
     quantity: {
