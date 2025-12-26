@@ -25,15 +25,6 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
 
   // Handle image uploads if files are provided
   if (req.files && req.files.length > 0) {
-    // Optionally: Delete existing Cloudinary images before replacing
-    for (const img of product.images || []) {
-      try {
-        await cloud.uploader.destroy(img.public_id);
-      } catch (err) {
-        console.error("Error deleting old image:", err.message);
-      }
-    }
-
     let newImages = [];
 
     for (const file of req.files) {
@@ -61,12 +52,14 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       newImages.push({ secure_url, public_id });
     }
 
+    // New images override the old images
     updateData.images = newImages;
   }
 
   // Perform update
   const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
     new: true,
+    runValidators: true,
   });
 
   return res.status(200).json({
