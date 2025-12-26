@@ -37,6 +37,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
           folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
           public_id: publicId,
           resource_type: "image",
+          overwrite: false,
         });
 
         newImages.push({
@@ -48,7 +49,6 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Explicitly merge: Existing DB images + New Cloudinary images
     updateData.images = [...(product.images || []), ...newImages];
   }
 
