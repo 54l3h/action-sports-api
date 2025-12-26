@@ -24,10 +24,15 @@ router
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     uploadMultipleImages("images"),
-    // productValidationSchema.createProduct,
-    // validationMiddleware,
     productService.createProduct
   );
+
+router.delete(
+  "/:id/image",
+  authenticationMiddleware,
+  authorizationMiddleware(UserRoles.ADMIN),
+  productService.deleteImage
+);
 
 router
   .route("/:id")
@@ -50,12 +55,6 @@ router
     productValidationSchema.deleteProduct,
     validationMiddleware,
     productService.deleteProduct
-  )
-  .delete(
-    "/image",
-    authenticationMiddleware,
-    authorizationMiddleware(UserRoles.ADMIN),
-    productService.deleteImage
   );
 
 router.patch(
