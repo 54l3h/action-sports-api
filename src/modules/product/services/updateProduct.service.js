@@ -1,18 +1,7 @@
-import asyncHandler from "express-async-handler";
-import Product from "../../../models/product.model.js";
-import slugify from "slugify";
-import AppError from "../../../utils/AppError.js";
-import cloud from "../../../config/cloudinary.js";
-
-/**
- * @desc    Update product (with optional image upload)
- * @route   PATCH /api/products/:id
- * @access  Private
- */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
-  // 1. Filter out 'images' from req.body to prevent accidental overrides
+  // 1. Strip images from body so they aren't overwritten by empty inputs
   const { images, ...restOfBody } = req.body;
   let updateData = { ...restOfBody };
 
@@ -49,7 +38,8 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       }
     }
 
-    updateData.images = [...(product.images || []), ...newImages];
+    // Use $push operator to append to the existing array in the DB
+    updateData.$push = { images: { $each: newImages } };
   }
 
   // 3. Perform Update
