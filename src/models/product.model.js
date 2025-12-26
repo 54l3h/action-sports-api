@@ -109,37 +109,25 @@ productSchema.pre("save", async function (next) {
 
   next();
 });
-
-productSchema.pre("findOneAndUpdate", async function (next) {
+// Combine findOneAndUpdate and updateOne logic
+productSchema.pre(['findOneAndUpdate', 'updateOne'], async function (next) {
   const update = this.getUpdate();
 
-  // 1. Check if name exists either at the top level OR inside $set
+  // 1. Look for name in the top level OR inside $set
   const name = update.name || (update.$set && update.$set.name);
 
   if (name) {
     const slug = slugify(name, { lower: true });
 
-    // 2. Safely inject the slug into the $set operator if it exists
+    // 2. If the update is using atomic operators (like in your controller)
     if (update.$set) {
       update.$set.slug = slug;
     } else {
+      // 3. If it's a plain object update
       update.slug = slug;
     }
   }
 
-  // No need for this.setUpdate(update) if you modify the object directly,
-  // but if you do use it, the structure is now safe.
-  next();
-});
-
-productSchema.pre("updateOne", async function (next) {
-  const update = this.getUpdate();
-
-  if (update.name) {
-    update.slug = slugify(update.name);
-  }
-
-  this.setUpdate(update);
   next();
 });
 
