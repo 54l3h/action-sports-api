@@ -11,14 +11,17 @@ import cloud from "../../../config/cloudinary.js";
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  let updateData = { ...req.body };
+
+  // 1. Filter out 'images' from req.body to prevent accidental overrides
+  const { images, ...restOfBody } = req.body;
+  let updateData = { ...restOfBody };
 
   const product = await Product.findById(id);
   if (!product) {
     return next(new AppError("Product not found", 404));
   }
 
-  // 1. Handle Multiple Images Upload (Appending)
+  // 2. Handle Multiple Images Upload
   if (req.files && req.files.length > 0) {
     let newImages = [];
 
@@ -45,13 +48,11 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       }
     }
 
-    // Preserve old images and add the new ones
+    // Explicitly merge: Existing DB images + New Cloudinary images
     updateData.images = [...(product.images || []), ...newImages];
-  } else {
-    delete updateData.images;
   }
 
-  // 2. Perform Update (Slug is handled by your Schema Middleware)
+  // 3. Perform Update
   const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
