@@ -9,8 +9,10 @@ import cloud from "../../../config/cloudinary.js";
  * @access  Private
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
+  delete req.body.images;
+  
   const { id } = req.params;
-
+  
   const updateQuery = {};
 
   /* ================================

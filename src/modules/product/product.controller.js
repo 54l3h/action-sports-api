@@ -9,6 +9,7 @@ import {
 import { UserRoles } from "../../models/user.model.js";
 import { authenticationMiddleware } from "../../middlewares/authentication.middleware.js";
 import { authorizationMiddleware } from "../../middlewares/authorization.middleware.js";
+import { stripImagesFromBody } from "../../middlewares/stripImages.middleware.js";
 
 const router = Router();
 
@@ -39,6 +40,7 @@ router
     authenticationMiddleware,
     authorizationMiddleware(UserRoles.ADMIN),
     uploadMultipleImages("images"),
+    
     productValidationSchema.updateProduct,
     validationMiddleware,
     productService.updateProduct
