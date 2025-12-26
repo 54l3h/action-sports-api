@@ -13,6 +13,13 @@ import { stripImagesFromBody } from "../../middlewares/stripImages.middleware.js
 
 const router = Router();
 
+router.delete(
+  "/:id/image",
+  authenticationMiddleware,
+  authorizationMiddleware(UserRoles.ADMIN),
+  productService.deleteImage
+);
+
 router
   .route("/")
   .get(
@@ -26,13 +33,6 @@ router
     uploadMultipleImages("images"),
     productService.createProduct
   );
-
-router.delete(
-  "/:id/image",
-  authenticationMiddleware,
-  authorizationMiddleware(UserRoles.ADMIN),
-  productService.deleteImage
-);
 
 router
   .route("/:id")
