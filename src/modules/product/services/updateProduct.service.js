@@ -1,6 +1,5 @@
 import asyncHandler from "express-async-handler";
-import Product from "../../../models/product.model.js";
-import slugify from "slugify";
+import ProductModel from "../../../models/product.model.js";
 import AppError from "../../../utils/AppError.js";
 import cloud from "../../../config/cloudinary.js";
 
