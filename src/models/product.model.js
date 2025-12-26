@@ -110,22 +110,23 @@ productSchema.pre("save", async function (next) {
   next();
 });
 // Combine findOneAndUpdate and updateOne logic
-productSchema.pre(['findOneAndUpdate', 'updateOne'], async function (next) {
+productSchema.pre(["findOneAndUpdate", "updateOne"], function (next) {
   const update = this.getUpdate();
 
-  // 1. Look for name in the top level OR inside $set
-  const name = update.name || (update.$set && update.$set.name);
+  // Handle name/slug if it exists in $set or top level
+  let name = null;
+  if (update.$set && update.$set.name) {
+    name = update.$set.name;
+  } else if (update.name) {
+    name = update.name;
+  }
 
   if (name) {
     const slug = slugify(name, { lower: true });
 
-    // 2. If the update is using atomic operators (like in your controller)
-    if (update.$set) {
-      update.$set.slug = slug;
-    } else {
-      // 3. If it's a plain object update
-      update.slug = slug;
-    }
+    // Ensure we don't overwrite the whole $set object
+    if (!update.$set) update.$set = {};
+    update.$set.slug = slug;
   }
 
   next();

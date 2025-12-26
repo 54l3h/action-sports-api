@@ -10,31 +10,28 @@ import cloud from "../../../config/cloudinary.js";
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-
-  // 1. Strip 'images' from req.body to prevent accidental array overwrites
   const { images, ...restOfBody } = req.body;
 
-  // 2. Check if product exists
   const product = await Product.findById(id);
   if (!product) return next(new AppError("Product not found", 404));
 
-  // 3. Prepare the update object with $set for text fields
-  let finalUpdate = {
-    $set: { ...restOfBody },
-  };
+  // Initialize the update object
+  let updateQuery = {};
 
-  // 4. Handle Multiple Images Upload
+  // 1. Add standard fields to $set
+  if (Object.keys(restOfBody).length > 0) {
+    updateQuery.$set = { ...restOfBody };
+  }
+
+  // 2. Add images to $push
   if (req.files && req.files.length > 0) {
     let newImages = [];
-
     for (const file of req.files) {
       const dataUri = `data:${file.mimetype};base64,${file.buffer.toString(
         "base64"
       )}`;
-
       const uploadResult = await cloud.uploader.upload(dataUri, {
         folder: `${process.env.CLOUDINARY_FOLDER || "uploads"}/products`,
-        resource_type: "image",
       });
 
       newImages.push({
@@ -42,20 +39,14 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
         public_id: uploadResult.public_id,
       });
     }
-
-    // Use $push with $each to append new images to the existing array
-    finalUpdate.$push = { images: { $each: newImages } };
+    updateQuery.$push = { images: { $each: newImages } };
   }
 
-  // 5. Perform Update on the Model
-  const updatedProduct = await Product.findByIdAndUpdate(id, finalUpdate, {
+  // 3. Execute update via the Model
+  const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
   });
 
-  return res.status(200).json({
-    success: true,
-    message: "Product updated successfully",
-    data: updatedProduct,
-  });
+  return res.status(200).json({ success: true, data: updatedProduct });
 });
