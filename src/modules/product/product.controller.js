@@ -50,14 +50,13 @@ router
     productValidationSchema.deleteProduct,
     validationMiddleware,
     productService.deleteProduct
+  )
+  .delete(
+    "/image/:public-id",
+    authenticationMiddleware,
+    authorizationMiddleware(UserRoles.ADMIN),
+    productService.deleteImage
   );
-
-router.delete(
-  "/image/:id",
-  authenticationMiddleware,
-  authorizationMiddleware(UserRoles.ADMIN),
-  productService.deleteImage
-);
 
 router.patch(
   "/price-after-discount/:id",
