@@ -4,12 +4,13 @@ import AppError from "../../../utils/AppError.js";
 import cloud from "../../../config/cloudinary.js";
 
 /**
- * @desc    Update product (appends images, updates fields)
+ * @desc    Update product (Appends images to existing array)
  * @route   PATCH /api/products/:id
  */
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
+  // 1. Define allowed text fields
   const allowedFields = [
     "name",
     "title",
@@ -24,9 +25,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     "priceAfterDiscount",
   ];
 
-  const updateQuery = {};
-
-  // --- 1. Text Fields Update ($set) ---
+  // 2. Build the $set object (for text fields)
   const setData = {};
   for (const field of allowedFields) {
     if (req.body[field] !== undefined) {
@@ -34,11 +33,14 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // 3. Prepare the main update object
+  const updateQuery = {};
+
   if (Object.keys(setData).length > 0) {
     updateQuery.$set = setData;
   }
 
-  // --- 2. Image Append Logic ($push) ---
+  // 4. Handle Images - Append using $push + $each
   if (req.files && req.files.length > 0) {
     const uploads = await Promise.all(
       req.files.map((file) =>
@@ -49,7 +51,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       )
     );
 
-    // Using $push with $each explicitly appends to the existing array
+    // CRITICAL: We use $push with $each to force an append
     updateQuery.$push = {
       images: {
         $each: uploads.map((img) => ({
@@ -60,15 +62,16 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
     };
   }
 
+  // 5. Validation Check
   if (Object.keys(updateQuery).length === 0) {
     return next(new AppError("Nothing to update", 400));
   }
 
-  // --- 3. Database Execution ---
+  // 6. Execute Update
+  // We remove 'strict: true' to ensure MongoDB operators are not blocked
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
-    // Removed strict: true to ensure operators like $push work correctly
   });
 
   if (!updatedProduct) {
