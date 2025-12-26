@@ -52,8 +52,8 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
       newImages.push({ secure_url, public_id });
     }
 
-    // New images override the old images
-    updateData.images = newImages;
+    // Keep old images and add new images
+    updateData.images = [...(product.images || []), ...newImages];
   }
 
   // Perform update

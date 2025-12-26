@@ -51,6 +51,13 @@ router
     productService.deleteProduct
   );
 
+router.delete(
+  "/image/:id",
+  authenticationMiddleware,
+  authorizationMiddleware(UserRoles.ADMIN),
+  productService.deleteImage
+);
+
 router.patch(
   "/price-after-discount/:id",
   authenticationMiddleware,
