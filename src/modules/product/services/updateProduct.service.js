@@ -71,10 +71,12 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
   if (!Object.keys(updateQuery).length) {
     return next(new AppError("No data provided to update", 400));
   }
+  console.log("UPDATE QUERY:", JSON.stringify(updateQuery, null, 2));
 
   const updatedProduct = await Product.findByIdAndUpdate(id, updateQuery, {
     new: true,
     runValidators: true,
+    strict: true,
   });
 
   if (!updatedProduct) {
