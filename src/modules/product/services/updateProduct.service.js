@@ -1,3 +1,5 @@
+import Product from "../../../models/product.model";
+
 export const updateProduct = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
@@ -43,7 +45,7 @@ export const updateProduct = asyncHandler(async (req, res, next) => {
   }
 
   // 3. Perform Update
-  const updatedProduct = await Product.findByIdAndUpdate(id, updateData, {
+  const updatedProduct = await product.findByIdAndUpdate(id, updateData, {
     new: true,
     runValidators: true,
   });
